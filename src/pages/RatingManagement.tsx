@@ -38,51 +38,28 @@ interface Rating {
   reply?: string;
 }
 
-const initialRatings: Rating[] = [
-  {
-    id: 'R-001',
-    customerName: 'Budi Santoso',
-    rating: 5,
-    comment: 'Bakso Malangnya enak banget! Kuahnya gurih dan isiannya lengkap.',
-    date: '2024-03-20',
-    status: 'Published',
-    orderId: 'ORD-123',
-    reply: 'Terima kasih Pak Budi! Ditunggu kedatangannya kembali.'
-  },
-  {
-    id: 'R-002',
-    customerName: 'Siti Aminah',
-    rating: 4,
-    comment: 'Mie Yaminnya pas manisnya. Cuma sayang tadi nunggu agak lama.',
-    date: '2024-03-19',
-    status: 'Published',
-    orderId: 'ORD-124'
-  },
-  {
-    id: 'R-003',
-    customerName: 'Andi Wijaya',
-    rating: 2,
-    comment: 'Pangsitnya agak keras tadi. Tolong diperbaiki ya.',
-    date: '2024-03-18',
-    status: 'Reported',
-    orderId: 'ORD-125'
-  },
-  {
-    id: 'R-004',
-    customerName: 'user_anonymous',
-    rating: 5,
-    comment: 'Pelayanan cepat dan ramah. Bakso gorengnya mantap!',
-    date: '2024-03-17',
-    status: 'Pending',
-    orderId: 'ORD-126'
-  }
-];
+const initialRatings: Rating[] = [];
 
 export function RatingManagement() {
-  const [ratings, setRatings] = useState<Rating[]>(initialRatings);
+  const [ratings, setRatings] = useState<Rating[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('Semua');
   const [ratingFilter, setRatingFilter] = useState<number | 'Semua'>('Semua');
+
+  // Ambil data rating dari Backend MySQL saat komponen dimuat
+  React.useEffect(() => {
+    fetch('http://localhost:5000/api/ratings')
+      .then(res => res.json())
+      .then(data => {
+        if (!data.error) setRatings(data);
+      })
+      .catch(err => console.error("Gagal mengambil data rating:", err));
+  }, []);
+
+  // Hitung Rata-rata Rating
+  const averageRating = ratings.length > 0 
+    ? (ratings.reduce((acc, curr) => acc + curr.rating, 0) / ratings.length).toFixed(1) 
+    : '0.0';
 
   const filteredRatings = ratings.filter(r => {
     const matchesSearch = r.comment.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -93,14 +70,34 @@ export function RatingManagement() {
     return matchesSearch && matchesStatus && matchesRating;
   });
 
-  const handleUpdateStatus = (id: string, newStatus: Rating['status']) => {
-    setRatings(prev => prev.map(r => r.id === id ? { ...r, status: newStatus } : r));
-    toast.success(`Status rating berhasil diubah menjadi ${newStatus}`);
+  const handleUpdateStatus = async (id: string, newStatus: Rating['status']) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/ratings/${id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      if (!response.ok) throw new Error('Gagal update di server');
+      
+      setRatings(prev => prev.map(r => r.id === id ? { ...r, status: newStatus } : r));
+      toast.success(`Status rating berhasil diubah menjadi ${newStatus}`);
+    } catch (err) {
+      toast.error("Gagal mengubah status di database");
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setRatings(prev => prev.filter(r => r.id !== id));
-    toast.error("Rating berhasil dihapus");
+  const handleDelete = async (id: string) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/ratings/${id}`, {
+        method: 'DELETE'
+      });
+      if (!response.ok) throw new Error('Gagal hapus di server');
+
+      setRatings(prev => prev.filter(r => r.id !== id));
+      toast.success("Rating berhasil dihapus dari database");
+    } catch (err) {
+      toast.error("Gagal menghapus rating");
+    }
   };
 
   return (
@@ -110,7 +107,7 @@ export function RatingManagement() {
         <div className="flex items-center gap-2">
           <div className="bg-orange-50 px-3 py-1 rounded-full text-orange-700 text-sm font-medium border border-orange-100 flex items-center gap-2">
             <Star size={14} fill="currentColor" />
-            4.8 Rata-rata Rating
+            {averageRating} Rata-rata Rating
           </div>
         </div>
       </div>

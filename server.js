@@ -335,6 +335,53 @@ app.delete('/api/smart-tags/:id', (req, res) => {
 });
 
 // ==========================================
+// API ROUTES UNTUK RATING & ULASAN
+// ==========================================
+
+app.get('/api/ratings', (req, res) => {
+  db.query('SELECT * FROM ratings ORDER BY created_at DESC', (err, results) => {
+    if (err) return res.status(500).json({ error: 'Gagal mengambil data rating' });
+    const mapped = results.map(row => ({
+      id: row.id,
+      customerName: row.customer_name,
+      rating: row.rating,
+      comment: row.comment,
+      date: new Date(row.created_at).toLocaleDateString('id-ID'),
+      status: row.status,
+      orderId: row.order_id,
+      reply: row.reply
+    }));
+    res.json(mapped);
+  });
+});
+
+app.post('/api/ratings', (req, res) => {
+  const { id, customerName, rating, comment, orderId } = req.body;
+  const status = 'Pending'; // Default
+  const query = 'INSERT INTO ratings (id, customer_name, rating, comment, status, order_id) VALUES (?, ?, ?, ?, ?, ?)';
+  
+  db.query(query, [id, customerName, rating, comment, status, orderId], (err, result) => {
+    if (err) return res.status(500).json({ error: 'Gagal mengirim rating', details: err });
+    res.json({ message: 'Rating berhasil dikirim', id });
+  });
+});
+
+app.put('/api/ratings/:id/status', (req, res) => {
+  const { status } = req.body;
+  db.query('UPDATE ratings SET status=? WHERE id=?', [status, req.params.id], (err, result) => {
+    if (err) return res.status(500).json({ error: 'Gagal update status rating' });
+    res.json({ message: 'Status berhasil diubah' });
+  });
+});
+
+app.delete('/api/ratings/:id', (req, res) => {
+  db.query('DELETE FROM ratings WHERE id=?', [req.params.id], (err, result) => {
+    if (err) return res.status(500).json({ error: 'Gagal menghapus rating' });
+    res.json({ message: 'Rating berhasil dihapus' });
+  });
+});
+
+// ==========================================
 // API ROUTES UNTUK USERS & AUTHENTICATION
 // ==========================================
 

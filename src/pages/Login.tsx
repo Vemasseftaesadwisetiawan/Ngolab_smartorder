@@ -25,7 +25,7 @@ export function Login({ onLogin }: LoginProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
-      
+
       const data = await response.json();
 
       if (response.ok) {
@@ -46,7 +46,7 @@ export function Login({ onLogin }: LoginProps) {
       {/* Background Decorative Elements */}
       <div className="absolute top-0 right-0 w-96 h-96 bg-orange-100 rounded-full blur-3xl opacity-50 -mr-24 -mt-24 pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-orange-100 rounded-full blur-3xl opacity-50 -ml-24 -mb-24 pointer-events-none" />
-      
+
       <div className="w-full max-w-md relative z-10">
         <div className="flex flex-col items-center mb-8">
           <div className="w-16 h-16 bg-orange-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-orange-200 mb-4 rotate-3 transform hover:rotate-0 transition-transform duration-300">
@@ -69,11 +69,11 @@ export function Login({ onLogin }: LoginProps) {
                 <Label htmlFor="email" className="text-stone-700 font-semibold text-xs uppercase tracking-wider">Email Bisnis</Label>
                 <div className="relative group">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 group-focus-within:text-orange-500 transition-colors" size={18} />
-                  <Input 
-                    id="email" 
-                    type="email" 
-                    placeholder="nama@smartorder.com" 
-                    required 
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="nama@smartorder.com"
+                    required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="pl-10 h-11 border-stone-200 focus:ring-orange-500 focus:border-orange-500 rounded-lg transition-all"
@@ -87,10 +87,10 @@ export function Login({ onLogin }: LoginProps) {
                 </div>
                 <div className="relative group">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 group-focus-within:text-orange-500 transition-colors" size={18} />
-                  <Input 
-                    id="password" 
-                    type="password" 
-                    required 
+                  <Input
+                    id="password"
+                    type="password"
+                    required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="pl-10 h-11 border-stone-200 focus:ring-orange-500 focus:border-orange-500 rounded-lg transition-all"
@@ -99,8 +99,8 @@ export function Login({ onLogin }: LoginProps) {
               </div>
             </CardContent>
             <CardFooter className="flex flex-col gap-4 pt-2">
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 className="w-full h-11 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg shadow-lg shadow-orange-100 transition-all group"
                 disabled={isLoading}
               >
@@ -114,7 +114,7 @@ export function Login({ onLogin }: LoginProps) {
                 )}
               </Button>
               <div className="text-center">
-                <p className="text-xs text-stone-400 font-medium"> 
+                <p className="text-xs text-stone-400 font-medium">
                   © 2024 Ngolab System. All rights reserved.
                 </p>
               </div>

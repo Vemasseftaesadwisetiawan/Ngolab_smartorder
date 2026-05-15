@@ -30,22 +30,7 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from "sonner";
 
-const salesData = [
-  { name: 'Sen', total: 1200000, scans: 45 },
-  { name: 'Sel', total: 1500000, scans: 52 },
-  { name: 'Rab', total: 1100000, scans: 38 },
-  { name: 'Kam', total: 1800000, scans: 65 },
-  { name: 'Jum', total: 2200000, scans: 80 },
-  { name: 'Sab', total: 3500000, scans: 120 },
-  { name: 'Min', total: 3800000, scans: 145 },
-];
-
-const zonePerformance = [
-  { name: 'Lantai 1', value: 4500000 },
-  { name: 'Area VIP', value: 2800000 },
-  { name: 'Outdoor', value: 3200000 },
-  { name: 'Bar Counter', value: 1500000 },
-];
+// We will calculate these dynamically from the real orders data
 
 interface DashboardProps {
   menuItems: any[];
@@ -54,25 +39,91 @@ interface DashboardProps {
 }
 
 export function Dashboard({ menuItems, orders, stockItems }: DashboardProps) {
+  const [tables, setTables] = React.useState<any[]>([]);
+
+  React.useEffect(() => {
+    fetch('http://localhost:5000/api/smart-tags')
+      .then(res => res.json())
+      .then(data => {
+        if (!data.error) setTables(data);
+      })
+      .catch(err => console.error("Gagal mengambil data meja:", err));
+  }, []);
+
+  // Total Pendapatan
   const totalRevenue = orders.reduce((acc, order) => acc + order.total, 0);
-  const pendingOrders = orders.filter(order => order.status === 'Menunggu').length;
+  
+  // Total Transaksi Hari Ini
+  const today = new Date().toLocaleDateString('id-ID');
+  const todayOrders = orders.filter(order => order.date === today);
+  const todayRevenue = todayOrders.reduce((acc, order) => acc + order.total, 0);
+  
+  // Hitung Data Penjualan (7 Hari Terakhir)
+  const salesData = React.useMemo(() => {
+    const days = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+    const dataMap = new Map();
+    
+    // Inisialisasi 7 hari terakhir
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dayName = days[d.getDay()];
+      const dateString = d.toLocaleDateString('id-ID');
+      dataMap.set(dateString, { name: dayName, total: 0, scans: 0 });
+    }
+
+    orders.forEach(order => {
+      if (dataMap.has(order.date)) {
+        const existing = dataMap.get(order.date);
+        existing.total += order.total;
+        existing.scans += 1; // Anggap 1 pesanan = 1 scan untuk penyederhanaan
+        dataMap.set(order.date, existing);
+      }
+    });
+
+    return Array.from(dataMap.values());
+  }, [orders]);
+
   const totalScans = salesData.reduce((acc, curr) => acc + curr.scans, 0);
+
+  // Hitung Performa Zona (Zone Performance)
+  const zonePerformance = React.useMemo(() => {
+    const zoneMap: Record<string, number> = {};
+    
+    // Default zones
+    tables.forEach(table => {
+      if (!zoneMap[table.zone]) zoneMap[table.zone] = 0;
+    });
+
+    orders.forEach(order => {
+      // Cari zona meja dari order
+      const tableInfo = tables.find(t => t.number === order.table || `Meja ${t.number}` === order.table);
+      const zoneName = tableInfo ? tableInfo.zone : 'Tanpa Zona';
+      
+      if (!zoneMap[zoneName]) zoneMap[zoneName] = 0;
+      zoneMap[zoneName] += order.total;
+    });
+
+    return Object.entries(zoneMap)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value); // Urutkan dari terbesar
+  }, [orders, tables]);
   
   const stats = [
     {
-      title: "Pendapatan Smart Tag",
+      title: "Total Omset (All Time)",
       value: `Rp ${(totalRevenue || 0).toLocaleString()}`,
-      description: "+12.5% vs minggu lalu",
+      description: "Pendapatan keseluruhan",
       icon: DollarSign,
       trend: "up",
       color: "text-green-600",
       bg: "bg-green-100"
     },
     {
-      title: "Total Scan Hari Ini",
-      value: "145",
-      description: "+22% vs kemarin",
-      icon: Users,
+      title: "Pesanan Hari Ini",
+      value: todayOrders.length.toString(),
+      description: `Rp ${todayRevenue.toLocaleString()}`,
+      icon: ShoppingBag,
       trend: "up",
       color: "text-blue-600",
       bg: "bg-blue-100"
@@ -115,40 +166,91 @@ export function Dashboard({ menuItems, orders, stockItems }: DashboardProps) {
       });
     }
 
-    // Condition 2: High Scans but Low Conversion
-    if (conversionRate < 50) {
-      recs.push({
-        type: 'warning',
-        title: "Optimasi Konversi Menu",
-        description: "Banyak pelanggan melakukan scan tapi tidak memesan. Coba tambahkan foto produk atau promo 'Menu Rekomendasi' di Smart Tag.",
-        icon: TrendingUp,
-        action: "EDIT MENU"
+    // Condition 2: Analisis Menu (Terlaris & Kurang Laku)
+    const itemCounts: Record<string, { count: number, revenue: number }> = {};
+    orders.forEach(order => {
+      order.items?.forEach((item: any) => {
+        if (!itemCounts[item.name]) itemCounts[item.name] = { count: 0, revenue: 0 };
+        itemCounts[item.name].count += Number(item.quantity);
+        itemCounts[item.name].revenue += (Number(item.price) * Number(item.quantity));
       });
-    } else {
+    });
+
+    const sortedItems = Object.entries(itemCounts).sort((a, b) => b[1].count - a[1].count);
+    
+    if (sortedItems.length > 0) {
+      const topItem = sortedItems[0];
       recs.push({
         type: 'success',
-        title: "Upselling Opportunity",
-        description: "Konversi scan Anda sangat baik. Tambahkan 'Add-on' otomatis (seperti Ekstrak Kerupuk/Telur) untuk meningkatkan nilai per pesanan.",
-        icon: DollarSign,
-        action: "LIHAT ANALITIK PROMO"
+        title: `Bintang Menu: ${topItem[0]}`,
+        description: `Terjual paling banyak (${topItem[1].count} porsi). Pertimbangkan membuat "Paket Bundling" menu ini dengan minuman untuk melipatgandakan omset!`,
+        icon: TrendingUp,
+        action: "BUAT PAKET MENU"
+      });
+
+      if (sortedItems.length >= 3) {
+        const bottomItem = sortedItems[sortedItems.length - 1];
+        // Jika menu terbawah terjual sangat sedikit dibanding menu teratas
+        if (bottomItem[1].count < (topItem[1].count * 0.2)) {
+          recs.push({
+            type: 'warning',
+            title: `Evaluasi Menu: ${bottomItem[0]}`,
+            description: `Sangat jarang dipesan (hanya ${bottomItem[1].count} porsi). Coba berikan diskon, ubah resep, atau perbaiki fotonya di Smart Tag.`,
+            icon: ShoppingBag,
+            action: "EDIT MENU"
+          });
+        }
+      }
+    }
+
+    // Condition 3: Analisis Jam Sibuk (Peak Hours)
+    const hourCounts: Record<string, number> = {};
+    orders.forEach(order => {
+      if (order.time) {
+        // Asumsi format waktu "14:30" atau "14.30"
+        const hour = order.time.replace('.', ':').split(':')[0]; 
+        if (!hourCounts[hour]) hourCounts[hour] = 0;
+        hourCounts[hour]++;
+      }
+    });
+
+    const sortedHours = Object.entries(hourCounts).sort((a, b) => b[1] - a[1]);
+    if (sortedHours.length > 0) {
+      const peakHour = sortedHours[0][0];
+      recs.push({
+         type: 'info',
+         title: `Bersiap Jam Sibuk (${peakHour}:00 - ${parseInt(peakHour)+1}:00)`,
+         description: `Banyak transaksi terjadi di sekitar jam ${peakHour}:00. Pastikan bahan baku sudah disiapkan sebelumnya agar KDS tidak menumpuk.`,
+         icon: Users,
+         action: "LIHAT KDS"
       });
     }
 
     // Condition 3: Zone Performance
-    const topZone = [...zonePerformance].sort((a, b) => b.value - a.value)[0];
-    const lowZone = [...zonePerformance].sort((a, b) => a.value - b.value)[0];
-    
-    if (topZone.value > lowZone.value * 2) {
-      recs.push({
-        type: 'info',
-        title: `Pemerataan Area: ${lowZone.name}`,
-        description: `Pendapatan di ${lowZone.name} tertinggal jauh dari ${topZone.name}. Berikan promo khusus zona ini untuk menarik pelanggan ke area sepi.`,
-        icon: Users,
-        action: "BUAT PROMO ZONA"
-      });
+    if (zonePerformance.length >= 2) {
+      const topZone = zonePerformance[0];
+      const lowZone = zonePerformance[zonePerformance.length - 1];
+      
+      if (topZone.value > 0 && lowZone.value === 0) {
+        recs.push({
+          type: 'info',
+          title: `Tingkatkan Pesanan di: ${lowZone.name}`,
+          description: `Belum ada pesanan dari ${lowZone.name}. Pastikan Smart Tag di area tersebut mudah terlihat oleh pelanggan.`,
+          icon: Users,
+          action: "BUAT PROMO ZONA"
+        });
+      } else if (topZone.value > lowZone.value * 2 && lowZone.value > 0) {
+        recs.push({
+          type: 'info',
+          title: `Pemerataan Area: ${lowZone.name}`,
+          description: `Pendapatan di ${lowZone.name} tertinggal jauh dari ${topZone.name}. Berikan promo khusus zona ini.`,
+          icon: Users,
+          action: "BUAT PROMO ZONA"
+        });
+      }
     }
 
-    return recs.slice(0, 3); // Return top 3 relevant recs
+    return recs.slice(0, 4); // Menampilkan maksimal 4 rekomendasi terpenting
   };
 
   const dynamicRecs = getDynamicRecommendations();
