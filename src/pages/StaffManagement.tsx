@@ -42,6 +42,12 @@ import {
 } from "@/components/ui/select";
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type StaffRole = 'Operasional' | 'Support' | 'Koki' | 'Kasir';
 
@@ -71,20 +77,8 @@ const SHIFT_DETAILS = {
   'Full': { label: 'Shift Full', hours: '08:00 - 22:00', start: '08:00', end: '22:00' }
 };
 
-const initialStaff: StaffMember[] = [
-  { id: 'ST-001', name: 'Budi Santoso', email: 'budi@warung.com', phone: '08123456789', joinDate: '2023-01-10', status: 'Aktif' },
-  { id: 'ST-002', name: 'Siti Aminah', email: 'siti@warung.com', phone: '08123456790', joinDate: '2023-02-15', status: 'Aktif' },
-  { id: 'ST-003', name: 'Agus Setiawan', email: 'agus@warung.com', phone: '08123456791', joinDate: '2023-03-20', status: 'Aktif' },
-  { id: 'ST-004', name: 'Dewi Lestari', email: 'dewi@warung.com', phone: '08123456792', joinDate: '2023-05-12', status: 'Aktif' },
-  { id: 'ST-005', name: 'Rina Wijaya', email: 'rina@warung.com', phone: '08123456793', joinDate: '2023-06-01', status: 'Aktif' },
-];
-
-const initialSchedules: Schedule[] = [
-  { id: 'SCH-001', staffId: 'ST-001', day: 'Senin', shift: 'Pagi', startTime: '08:00', endTime: '16:00', assignedRole: 'Koki' },
-  { id: 'SCH-002', staffId: 'ST-002', day: 'Senin', shift: 'Pagi', startTime: '08:00', endTime: '16:00', assignedRole: 'Operasional' },
-  { id: 'SCH-003', staffId: 'ST-003', day: 'Senin', shift: 'Sore', startTime: '14:00', endTime: '22:00', assignedRole: 'Support' },
-  { id: 'SCH-004', staffId: 'ST-004', day: 'Senin', shift: 'Sore', startTime: '14:00', endTime: '22:00', assignedRole: 'Operasional' },
-];
+const initialStaff: StaffMember[] = [];
+const initialSchedules: Schedule[] = [];
 
 const DAYS = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
 const ROLES: StaffRole[] = ['Operasional', 'Support', 'Koki', 'Kasir'];
@@ -104,6 +98,35 @@ export function StaffManagement() {
     endTime: '16:00',
     assignedRole: 'Operasional' as StaffRole
   });
+
+  // Ambil Data Staff & Jadwal dari MySQL
+  React.useEffect(() => {
+    fetch('http://localhost:5000/api/staff')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setStaff(data);
+      })
+      .catch(err => console.error("Gagal ambil staff:", err));
+
+    fetch('http://localhost:5000/api/schedules')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          // Map data dari MySQL (start_time) ke format React (startTime)
+          const mapped = data.map((s: any) => ({
+            id: s.id?.toString() || '',
+            staffId: s.staff_id?.toString() || '',
+            day: s.day || '',
+            shift: s.shift || 'Pagi',
+            startTime: (s.start_time || '00:00:00').substring(0, 5),
+            endTime: (s.end_time || '00:00:00').substring(0, 5),
+            assignedRole: s.assigned_role || 'Operasional'
+          }));
+          setSchedules(mapped);
+        }
+      })
+      .catch(err => console.error("Gagal ambil jadwal:", err));
+  }, []);
 
   const handleExportPDF = async () => {
     const element = document.getElementById('schedule-print-area');
@@ -142,15 +165,26 @@ export function StaffManagement() {
     }
   };
 
-  const handleAddSchedule = (e: React.FormEvent) => {
+  const handleAddSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newSchedule: Schedule = {
-      id: `SCH-${Math.random().toString(36).substr(2, 9)}`,
-      ...scheduleForm
-    };
-    setSchedules(prev => [...prev, newSchedule]);
-    setIsAddScheduleOpen(false);
-    toast.success("Jadwal baru berhasil ditambahkan!");
+    try {
+      const response = await fetch('http://localhost:5000/api/schedules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(scheduleForm)
+      });
+      const result = await response.json();
+      
+      const newSchedule: Schedule = {
+        id: result.id.toString(),
+        ...scheduleForm
+      };
+      setSchedules(prev => [...prev, newSchedule]);
+      setIsAddScheduleOpen(false);
+      toast.success("Jadwal baru berhasil disimpan ke Database!");
+    } catch (err) {
+      toast.error("Gagal menyimpan jadwal");
+    }
   };
 
   const updateScheduleTime = (shift: string) => {
@@ -171,20 +205,60 @@ export function StaffManagement() {
     s.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleAddStaff = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAddStaff = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const newMember: StaffMember = {
-      id: `ST-${String(staff.length + 1).padStart(3, '0')}`,
+    const staffData = {
       name: formData.get('name') as string,
       email: formData.get('email') as string,
       phone: formData.get('phone') as string,
       joinDate: new Date().toISOString().split('T')[0],
-      status: 'Aktif',
+      status: 'Aktif' as const,
     };
-    setStaff(prev => [...prev, newMember]);
-    setIsAddStaffOpen(false);
-    toast.success("Staff baru berhasil ditambahkan!");
+
+    try {
+      const response = await fetch('http://localhost:5000/api/staff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(staffData)
+      });
+      const result = await response.json();
+
+      const newMember: StaffMember = {
+        id: result.id.toString(),
+        ...staffData
+      };
+      setStaff(prev => [...prev, newMember]);
+      setIsAddStaffOpen(false);
+      toast.success("Staff baru berhasil disimpan ke Database!");
+    } catch (err) {
+      toast.error("Gagal menyimpan staff");
+    }
+  };
+
+  const handleDeleteStaff = async (id: string) => {
+    if (!confirm("Apakah Anda yakin ingin menghapus staff ini? Semua jadwal jaganya juga akan terhapus.")) return;
+    try {
+      const response = await fetch(`http://localhost:5000/api/staff/${id}`, { method: 'DELETE' });
+      if (response.ok) {
+        setStaff(prev => prev.filter(s => s.id !== id));
+        toast.success("Staff berhasil dihapus");
+      }
+    } catch (err) {
+      toast.error("Gagal menghapus staff");
+    }
+  };
+
+  const handleDeleteSchedule = async (id: string) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/schedules/${id}`, { method: 'DELETE' });
+      if (response.ok) {
+        setSchedules(prev => prev.filter(s => s.id !== id));
+        toast.success("Jadwal berhasil dihapus");
+      }
+    } catch (err) {
+      toast.error("Gagal menghapus jadwal");
+    }
   };
 
   const getStaffName = (id?: string) => staff.find(s => s.id === id)?.name || '-';
@@ -309,9 +383,20 @@ export function StaffManagement() {
                     <Button variant="outline" size="sm" className="flex-1 text-[10px] uppercase font-bold text-stone-500 border-stone-200">
                       Profil
                     </Button>
-                    <Button variant="outline" size="sm" className="w-10 border-stone-200">
-                      <MoreVertical size={14} className="text-stone-400" />
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <Button variant="outline" size="sm" className="w-10 border-stone-200">
+                            <MoreVertical size={14} className="text-stone-400" />
+                          </Button>
+                        }
+                      />
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteStaff(member.id)}>
+                          Hapus Staff
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </CardContent>
               </Card>
@@ -320,19 +405,7 @@ export function StaffManagement() {
         </>
       ) : (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card className="border-none shadow-sm bg-orange-600 text-white">
-              <CardContent className="p-4 flex items-center gap-4">
-                <div className="bg-white/20 p-3 rounded-xl">
-                  <Clock size={24} />
-                </div>
-                <div>
-                  <p className="text-orange-100 text-xs uppercase font-bold tracking-wider">Shift Berjalan</p>
-                  <h4 className="text-xl font-bold">Shift Pagi</h4>
-                  <p className="text-orange-100 text-[10px]">Lantai 1 & 2 Aktif</p>
-                </div>
-              </CardContent>
-            </Card>
+          <div className="grid grid-cols-1 gap-4">
             <Card className="border-none shadow-sm bg-white">
               <CardContent className="p-4 flex items-center gap-4">
                 <div className="bg-stone-100 p-3 rounded-xl text-stone-600">
@@ -341,7 +414,7 @@ export function StaffManagement() {
                 <div>
                   <p className="text-stone-400 text-xs uppercase font-bold tracking-wider">Staff Bertugas</p>
                   <h4 className="text-xl font-bold text-stone-900">{schedules.filter(s => s.day === 'Senin' && s.shift === 'Pagi').length} Orang</h4>
-                  <p className="text-stone-400 text-[10px]">Total 4 Staff hari ini</p>
+                  <p className="text-stone-400 text-[10px]">Total {staff.length} Staff terdaftar</p>
                 </div>
               </CardContent>
             </Card>
@@ -408,9 +481,20 @@ export function StaffManagement() {
                                 </div>
                               </div>
                             </div>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-stone-300 opacity-0 group-hover:opacity-100 transition-opacity print:hidden">
-                              <MoreVertical size={14} />
-                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger
+                                render={
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-stone-300 opacity-0 group-hover:opacity-100 transition-opacity print:hidden">
+                                    <MoreVertical size={14} />
+                                  </Button>
+                                }
+                              />
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem className="text-red-600 text-xs" onClick={() => handleDeleteSchedule(s.id)}>
+                                  Hapus Jadwal
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         );
                       })}

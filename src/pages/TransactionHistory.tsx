@@ -54,6 +54,7 @@ interface Order {
   total: number;
   time: string;
   status: string;
+  type: string; // Menambahkan tipe pesanan (POS / SmartOrder)
 }
 
 interface TransactionHistoryProps {
@@ -283,7 +284,14 @@ export function TransactionHistory({ orders, searchTerm = '' }: TransactionHisto
             <TableBody>
               {filteredTransactions.map((trx) => (
                 <TableRow key={trx.id} className="border-stone-50 hover:bg-stone-50/50 transition-colors">
-                  <TableCell className="font-bold text-stone-900 text-xs font-normal">SmartOrder</TableCell>
+                  <TableCell className="font-bold text-stone-900 text-xs font-normal">
+                    <Badge variant="outline" className={cn(
+                      "font-bold text-[10px] border-stone-200",
+                      trx.type === 'POS' ? "text-blue-600 bg-blue-50" : "text-orange-600 bg-orange-50"
+                    )}>
+                      {trx.type || 'SmartOrder'}
+                    </Badge>
+                  </TableCell>
                   <TableCell>
                     <div className="text-sm">
                       <p className="text-stone-900 font-medium">{trx.time}</p>

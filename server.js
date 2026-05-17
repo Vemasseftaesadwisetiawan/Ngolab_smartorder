@@ -10,7 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const port = process.env.PORT || 5000;
+const port = 5000;
 
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
@@ -33,11 +33,10 @@ app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const db = mysql.createConnection({
-  host: process.env.MYSQLHOST || 'localhost',
-  user: process.env.MYSQLUSER || 'root',
-  password: process.env.MYSQLPASSWORD || '',
-  database: process.env.MYSQLDATABASE || 'smartorder_db',
-  port: process.env.MYSQLPORT || 3306
+  host: 'localhost',
+  user: 'root',
+  password: '',
+  database: 'smartorder_db'
 });
 
 db.connect((err) => {
@@ -345,7 +344,7 @@ app.get('/api/ratings', (req, res) => {
     const mapped = results.map(row => ({
       id: row.id,
       customerName: row.customer_name,
-      rating: row.rating,
+      rating: row.rating_value, // Diubah dari row.rating
       comment: row.comment,
       date: new Date(row.created_at).toLocaleDateString('id-ID'),
       status: row.status,
@@ -357,13 +356,13 @@ app.get('/api/ratings', (req, res) => {
 });
 
 app.post('/api/ratings', (req, res) => {
-  const { id, customerName, rating, comment, orderId } = req.body;
-  const status = 'Pending'; // Default
-  const query = 'INSERT INTO ratings (id, customer_name, rating, comment, status, order_id) VALUES (?, ?, ?, ?, ?, ?)';
+  const { customerName, rating, comment, orderId } = req.body;
+  const status = 'Pending'; 
+  const query = 'INSERT INTO ratings (customer_name, rating_value, comment, status, order_id) VALUES (?, ?, ?, ?, ?)';
   
-  db.query(query, [id, customerName, rating, comment, status, orderId], (err, result) => {
+  db.query(query, [customerName, rating, comment, status, orderId], (err, result) => {
     if (err) return res.status(500).json({ error: 'Gagal mengirim rating', details: err });
-    res.json({ message: 'Rating berhasil dikirim', id });
+    res.json({ message: 'Rating berhasil dikirim', id: result.insertId });
   });
 });
 
@@ -416,6 +415,75 @@ app.get('/api/users', (req, res) => {
   db.query(query, (err, results) => {
     if (err) return res.status(500).json({ error: 'Gagal mengambil data pengguna' });
     res.json(results);
+  });
+});
+
+// ==========================================
+// API ROUTES UNTUK MANAJEMEN STAFF
+// ==========================================
+
+// 1. Ambil Semua Staff
+app.get('/api/staff', (req, res) => {
+  db.query('SELECT *, DATE_FORMAT(join_date, "%Y-%m-%d") as joinDate FROM staff ORDER BY id ASC', (err, results) => {
+    if (err) return res.status(500).json({ error: 'Gagal mengambil data staff' });
+    res.json(results);
+  });
+});
+
+// 2. Tambah Staff Baru
+app.post('/api/staff', (req, res) => {
+  const { name, email, phone, status, joinDate } = req.body;
+  const query = 'INSERT INTO staff (name, email, phone, status, join_date) VALUES (?, ?, ?, ?, ?)';
+  db.query(query, [name, email, phone, status, joinDate], (err, result) => {
+    if (err) {
+      console.error('❌ Database Error (Tambah Staff):', err.message);
+      return res.status(500).json({ error: 'Gagal menambah staff ke database', details: err.message });
+    }
+    res.json({ message: 'Staff berhasil ditambahkan', id: result.insertId });
+  });
+});
+
+// 2a. Update Staff
+app.put('/api/staff/:id', (req, res) => {
+  const { name, email, phone, status } = req.body;
+  const query = 'UPDATE staff SET name=?, email=?, phone=?, status=? WHERE id=?';
+  db.query(query, [name, email, phone, status, req.params.id], (err, result) => {
+    if (err) return res.status(500).json({ error: 'Gagal update staff' });
+    res.json({ message: 'Staff berhasil diupdate' });
+  });
+});
+
+// 2b. Hapus Staff
+app.delete('/api/staff/:id', (req, res) => {
+  db.query('DELETE FROM staff WHERE id=?', [req.params.id], (err, result) => {
+    if (err) return res.status(500).json({ error: 'Gagal menghapus staff' });
+    res.json({ message: 'Staff berhasil dihapus' });
+  });
+});
+
+// 3. Ambil Semua Jadwal Jaga
+app.get('/api/schedules', (req, res) => {
+  db.query('SELECT * FROM staff_schedules', (err, results) => {
+    if (err) return res.status(500).json({ error: 'Gagal mengambil jadwal' });
+    res.json(results);
+  });
+});
+
+// 4. Tambah Jadwal Jaga Baru
+app.post('/api/schedules', (req, res) => {
+  const { staffId, day, shift, startTime, endTime, assignedRole } = req.body;
+  const query = 'INSERT INTO staff_schedules (staff_id, day, shift, start_time, end_time, assigned_role) VALUES (?, ?, ?, ?, ?, ?)';
+  db.query(query, [staffId, day, shift, startTime, endTime, assignedRole], (err, result) => {
+    if (err) return res.status(500).json({ error: 'Gagal menambah jadwal', details: err });
+    res.json({ message: 'Jadwal berhasil ditambahkan', id: result.insertId });
+  });
+});
+
+// 4a. Hapus Jadwal Jaga
+app.delete('/api/schedules/:id', (req, res) => {
+  db.query('DELETE FROM staff_schedules WHERE id=?', [req.params.id], (err, result) => {
+    if (err) return res.status(500).json({ error: 'Gagal menghapus jadwal' });
+    res.json({ message: 'Jadwal berhasil dihapus' });
   });
 });
 

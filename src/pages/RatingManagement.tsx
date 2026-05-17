@@ -8,7 +8,8 @@ import {
   CheckCircle2, 
   AlertCircle,
   MoreVertical,
-  Reply
+  Reply,
+  Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -225,13 +226,19 @@ export function RatingManagement() {
                           {rating.status !== 'Published' && (
                             <DropdownMenuItem onClick={() => handleUpdateStatus(rating.id, 'Published')}>
                               <CheckCircle2 size={14} className="mr-2 text-emerald-500" />
-                              Terbitkan
+                              Terbitkan (Publish)
+                            </DropdownMenuItem>
+                          )}
+                          {rating.status !== 'Pending' && (
+                            <DropdownMenuItem onClick={() => handleUpdateStatus(rating.id, 'Pending')}>
+                              <Clock size={14} className="mr-2 text-amber-500" />
+                              Kembalikan ke Tertunda
                             </DropdownMenuItem>
                           )}
                           {rating.status !== 'Reported' && (
                             <DropdownMenuItem className="text-red-600" onClick={() => handleUpdateStatus(rating.id, 'Reported')}>
                               <AlertCircle size={14} className="mr-2" />
-                              Laporkan
+                              Laporkan (Spam/Kasar)
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuSeparator />
