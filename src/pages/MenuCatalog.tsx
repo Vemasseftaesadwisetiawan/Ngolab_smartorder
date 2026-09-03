@@ -46,6 +46,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from '@/lib/utils';
 import { toast } from "sonner";
+import { apiFetch } from '@/lib/apiFetch';
 
 interface MenuItem {
   id: string;
@@ -60,6 +61,9 @@ interface MenuItem {
   rating?: number;
   reviews?: number;
   displayed?: boolean;
+  availability_type?: string;
+  available_from?: string;
+  available_to?: string;
 }
 
 interface MenuCatalogProps {
@@ -82,13 +86,13 @@ export function MenuCatalog({
   const effectiveSearchTerm = searchTerm || localSearchTerm;
 
   const isAdmin = userRole === 'Admin' || userRole === 'Owner' || userRole === 'Manager';
-  const isStaff = userRole === 'Staff' || userRole === 'Staff Dapur' || userRole === 'Staff Operasional';
+  const isStaff = userRole === 'Staff' || userRole === 'Koki' || userRole === 'Kasir' || userRole === 'Koki';
 
   const [isPromoDialogOpen, setIsPromoDialogOpen] = useState(false);
   const [selectedItemForPromo, setSelectedItemForPromo] = useState<MenuItem | null>(null);
   const [promoPriceInput, setPromoPriceInput] = useState('');
 
-  const handleUpdatePromo = (e: React.FormEvent) => {
+  const handleUpdatePromo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedItemForPromo) return;
 
@@ -103,25 +107,49 @@ export function MenuCatalog({
       return;
     }
 
-    setMenuItems(prev => prev.map(item => 
-      item.id === selectedItemForPromo.id ? { ...item, promoPrice: newPromoPrice } : item
-    ));
+    try {
+      const response = await apiFetch(`/api/menu/${selectedItemForPromo.id}/promo`, {
+        method: 'PUT',
+        body: JSON.stringify({ promoPrice: newPromoPrice })
+      });
 
-    toast.success(`Promo untuk ${selectedItemForPromo.name} berhasil diatur!`);
-    setIsPromoDialogOpen(false);
-    setSelectedItemForPromo(null);
-    setPromoPriceInput('');
+      if (!response.ok) throw new Error('Gagal update promo');
+
+      setMenuItems(prev => prev.map(item => 
+        item.id === selectedItemForPromo.id ? { ...item, promoPrice: newPromoPrice } : item
+      ));
+
+      toast.success(`Promo untuk ${selectedItemForPromo.name} berhasil diatur!`);
+      setIsPromoDialogOpen(false);
+      setSelectedItemForPromo(null);
+      setPromoPriceInput('');
+    } catch (error) {
+      toast.error("Terjadi kesalahan saat menyimpan harga promo ke database.");
+      console.error(error);
+    }
   };
 
-  const removePromo = (id: string, name: string) => {
-    setMenuItems(prev => prev.map(item => 
-      item.id === id ? { ...item, promoPrice: undefined } : item
-    ));
-    toast.info(`Promo untuk ${name} telah dihapus`);
+  const removePromo = async (id: string, name: string) => {
+    try {
+      const response = await apiFetch(`/api/menu/${id}/promo`, {
+        method: 'PUT',
+        body: JSON.stringify({ promoPrice: null })
+      });
+
+      if (!response.ok) throw new Error('Gagal menghapus promo');
+
+      setMenuItems(prev => prev.map(item => 
+        item.id === id ? { ...item, promoPrice: undefined } : item
+      ));
+      toast.info(`Promo untuk ${name} telah dihapus`);
+    } catch (error) {
+      toast.error("Terjadi kesalahan saat menghapus harga promo di database.");
+      console.error(error);
+    }
   };
 
   const toggleDisplay = async (id: string) => {
-    if (userRole === 'Staff Dapur' || userRole === 'Staff Operasional') {
+    if (userRole === 'Koki' || userRole === 'Kasir') {
       toast.error('Gunakan mode Admin untuk mengubah tampilan menu.');
       return;
     }
@@ -132,9 +160,8 @@ export function MenuCatalog({
     const newState = !itemToToggle.displayed;
 
     try {
-      const response = await fetch(`http://localhost:5000/api/menu/${id}/display`, {
+      const response = await apiFetch(`/api/menu/${id}/display`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ displayed: newState })
       });
       
@@ -155,6 +182,22 @@ export function MenuCatalog({
                           item.description.toLowerCase().includes(effectiveSearchTerm.toLowerCase());
     return matchesCategory && matchesSearch;
   });
+
+  const today = new Date().toISOString().split('T')[0];
+  const scheduledToday = filteredItems.filter(item => 
+    item.availability_type === 'scheduled' && 
+    item.available_from && 
+    item.available_to &&
+    item.available_from <= today && 
+    item.available_to >= today
+  );
+  const regularItems = filteredItems.filter(item => 
+    item.availability_type !== 'scheduled' || 
+    !item.available_from || 
+    !item.available_to ||
+    item.available_from > today || 
+    item.available_to < today
+  );
 
   const itemsOnPromo = menuItems.filter(item => item.promoPrice && item.promoPrice > 0);
   const categories = ['Semua', ...new Set(menuItems.map(item => item.category))];
@@ -302,7 +345,118 @@ export function MenuCatalog({
           </div>
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredItems.map((item) => (
+            {scheduledToday.length > 0 && (
+              <>
+                <div className="col-span-full bg-gradient-to-r from-orange-600 to-orange-700 rounded-2xl p-5 flex items-center gap-4 shadow-lg shadow-orange-200">
+                  <div className="bg-white/20 p-3 rounded-xl backdrop-blur-sm">
+                    <Calendar size={24} className="text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-white font-bold text-lg">Menu Hari Ini</p>
+                    <p className="text-orange-100 text-sm">
+                      {scheduledToday.length} menu spesial tersedia hari ini
+                    </p>
+                  </div>
+                  <Badge className="bg-white text-orange-700 border-none font-bold">
+                    {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                  </Badge>
+                </div>
+                {scheduledToday.map((item) => (
+                  <Card key={item.id} className={cn(
+                    "border-none shadow-sm bg-white overflow-hidden group transition-all duration-300 ring-2 ring-orange-100",
+                    !item.displayed && "opacity-60 grayscale-[0.5]"
+                  )}>
+                    <div className="relative aspect-[4/3] overflow-hidden">
+                      <img 
+                        src={item.image || `https://picsum.photos/seed/${item.id}/400/300`} 
+                        alt={item.name} 
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute top-3 left-3 flex flex-col gap-2">
+                        <Badge className="bg-orange-600 text-white border-none font-bold">
+                          <Calendar size={12} className="mr-1" />
+                          Menu Hari Ini
+                        </Badge>
+                        <Badge className="bg-white/90 text-stone-900 border-none hover:bg-white/90 font-bold">
+                          {item.category}
+                        </Badge>
+                        {item.promoPrice && (
+                          <Badge className="bg-red-500 text-white border-none animate-pulse">
+                            Sedia Promo
+                          </Badge>
+                        )}
+                      </div>
+                      {!item.displayed && (
+                        <div className="absolute inset-0 bg-stone-900/40 flex items-center justify-center">
+                          <Badge variant="secondary" className="bg-white/20 backdrop-blur-md text-white border-none py-1.5 px-3">
+                            <EyeOff size={14} className="mr-1.5" /> Tersembunyi
+                          </Badge>
+                        </div>
+                      )}
+                      {isAdmin && (
+                      <button 
+                        onClick={() => toggleDisplay(item.id)}
+                        className={cn(
+                          "absolute top-3 right-3 p-2 rounded-full backdrop-blur-md transition-all duration-300",
+                          item.displayed ? "bg-green-500/80 text-white" : "bg-stone-500/80 text-white"
+                        )}
+                      >
+                        {item.displayed ? <Eye size={18} /> : <EyeOff size={18} />}
+                      </button>
+                      )}
+                    </div>
+                    <CardContent className="p-5">
+                      <div className="flex justify-between items-start mb-2">
+                        <h3 className="font-bold text-lg text-stone-900 line-clamp-1">{item.name}</h3>
+                        <div className="flex items-center gap-1 text-orange-500">
+                          <Star size={14} fill="currentColor" />
+                          <span className="text-xs font-bold">{item.rating || 4.5}</span>
+                        </div>
+                      </div>
+                      <p className="text-stone-500 text-sm mb-4 line-clamp-2 h-10">{item.description}</p>
+                      <div className="flex items-end justify-between">
+                        <div className="flex flex-col">
+                          {item.promoPrice ? (
+                            <>
+                              <span className="text-xs text-stone-400 line-through">Rp {item.price.toLocaleString()}</span>
+                              <span className="text-xl font-bold text-orange-600">Rp {item.promoPrice.toLocaleString()}</span>
+                            </>
+                          ) : (
+                            <span className="text-xl font-bold text-stone-900">Rp {item.price.toLocaleString()}</span>
+                          )}
+                        </div>
+                        <span className="text-xs text-stone-400">{item.reviews || 0} ulasan</span>
+                      </div>
+                    </CardContent>
+                    <CardFooter className="p-5 pt-0">
+                      {isAdmin ? (
+                        <Button 
+                          variant={item.displayed ? "outline" : "default"}
+                          className={cn(
+                            "w-full gap-2 transition-all duration-300 rounded-xl",
+                            item.displayed ? "border-stone-200 text-stone-500" : "bg-orange-600 hover:bg-orange-700"
+                          )}
+                          onClick={() => toggleDisplay(item.id)}
+                        >
+                          {item.displayed ? (
+                            <><EyeOff size={18} /> Sembunyikan</>
+                          ) : (
+                            <><Eye size={18} /> Tampilkan Menu</>
+                          )}
+                        </Button>
+                      ) : (
+                        <Button className="w-full bg-stone-900 hover:bg-stone-800 rounded-xl gap-2">
+                          <ShoppingCart size={18} />
+                          Pesan Sekarang
+                        </Button>
+                      )}
+                    </CardFooter>
+                  </Card>
+                ))}
+              </>
+            )}
+            {regularItems.map((item) => (
               <Card key={item.id} className={cn(
                 "border-none shadow-sm bg-white overflow-hidden group transition-all duration-300",
                 !item.displayed && "opacity-60 grayscale-[0.5]"

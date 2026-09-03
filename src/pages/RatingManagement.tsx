@@ -1,32 +1,48 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Star, 
-  MessageSquare, 
-  User, 
   Search, 
   Filter, 
   CheckCircle2, 
-  AlertCircle,
-  MoreVertical,
+  AlertCircle, 
+  MoreVertical, 
   Reply,
-  Clock
+  Clock,
+  MessageSquare
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@/components/ui/table';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuGroup,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuGroup,
 } from "@/components/ui/dropdown-menu";
-import { cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import { apiFetch } from '@/lib/apiFetch';
+import { EmptyState } from '@/components/ui/empty-state';
 
 interface Rating {
   id: string;
@@ -37,34 +53,52 @@ interface Rating {
   status: 'Published' | 'Pending' | 'Reported';
   orderId: string;
   reply?: string;
+  menuId?: number | null;
+  menuName?: string | null;
 }
-
-const initialRatings: Rating[] = [];
 
 export function RatingManagement() {
   const [ratings, setRatings] = useState<Rating[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('Semua');
   const [ratingFilter, setRatingFilter] = useState<number | 'Semua'>('Semua');
+  const [replyingId, setReplyingId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Ambil data rating dari Backend MySQL saat komponen dimuat
-  React.useEffect(() => {
-    fetch('http://localhost:5000/api/ratings')
-      .then(res => res.json())
-      .then(data => {
-        if (!data.error) setRatings(data);
-      })
-      .catch(err => console.error("Gagal mengambil data rating:", err));
+  useEffect(() => {
+    const fetchRatings = async () => {
+      setIsLoading(true);
+      try {
+        const res = await apiFetch('/api/ratings');
+        const data = await res.json();
+        if (!data.error) {
+          setRatings(data);
+        } else {
+          toast.error(data.message || 'Gagal memuat data rating');
+        }
+      } catch (err) {
+        console.error('Gagal mengambil data rating:', err);
+        toast.error('Tidak dapat terhubung ke server');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchRatings();
   }, []);
 
-  // Hitung Rata-rata Rating
-  const averageRating = ratings.length > 0 
-    ? (ratings.reduce((acc, curr) => acc + curr.rating, 0) / ratings.length).toFixed(1) 
-    : '0.0';
+  const averageRating = useMemo(() => {
+    if (ratings.length === 0) return '0.0';
+    return (ratings.reduce((acc, curr) => acc + curr.rating, 0) / ratings.length).toFixed(1);
+  }, [ratings]);
 
   const filteredRatings = ratings.filter(r => {
-    const matchesSearch = r.comment.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          r.customerName.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = 
+      r.comment.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      r.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.orderId.toLowerCase().includes(searchTerm.toLowerCase());
+    
     const matchesStatus = statusFilter === 'Semua' || r.status === statusFilter;
     const matchesRating = ratingFilter === 'Semua' || r.rating === ratingFilter;
     
@@ -73,9 +107,8 @@ export function RatingManagement() {
 
   const handleUpdateStatus = async (id: string, newStatus: Rating['status']) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/ratings/${id}/status`, {
+      const response = await apiFetch(`/api/ratings/${id}/status`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
       });
       if (!response.ok) throw new Error('Gagal update di server');
@@ -89,7 +122,7 @@ export function RatingManagement() {
 
   const handleDelete = async (id: string) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/ratings/${id}`, {
+      const response = await apiFetch(`/api/ratings/${id}`, {
         method: 'DELETE'
       });
       if (!response.ok) throw new Error('Gagal hapus di server');
@@ -101,132 +134,237 @@ export function RatingManagement() {
     }
   };
 
+  const handleSendReply = async (id: string) => {
+    if (!replyText.trim()) {
+      toast.error('Balasan tidak boleh kosong');
+      return;
+    }
+    try {
+      const response = await apiFetch(`/api/ratings/${id}/reply`, {
+        method: 'PUT',
+        body: JSON.stringify({ reply: replyText })
+      });
+      if (!response.ok) throw new Error('Gagal mengirim balasan');
+      
+      setRatings(prev => prev.map(r => r.id === id ? { ...r, reply: replyText } : r));
+      setReplyingId(null);
+      setReplyText('');
+      toast.success("Balasan ulasan berhasil disimpan!");
+    } catch (err) {
+      toast.error("Gagal menyimpan balasan ulasan");
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'Published':
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-neutral-100 text-neutral-700 border border-neutral-200">Diterbitkan</span>;
+      case 'Pending':
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-neutral-100 text-neutral-600 border border-neutral-200">Tertunda</span>;
+      case 'Reported':
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-neutral-200 text-neutral-800 border border-neutral-300">Dilaporkan</span>;
+      default:
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium border border-neutral-200">{status}</span>;
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <h2 className="text-2xl font-bold text-stone-900">Kelola Rating & Ulasan</h2>
-        <div className="flex items-center gap-2">
-          <div className="bg-orange-50 px-3 py-1 rounded-full text-orange-700 text-sm font-medium border border-orange-100 flex items-center gap-2">
-            <Star size={14} fill="currentColor" />
-            {averageRating} Rata-rata Rating
+        <div>
+          <h2 className="text-lg font-semibold text-neutral-900">Kelola Rating & Ulasan</h2>
+          <p className="text-xs text-neutral-500 mt-1">
+            Pantau dan moderasi ulasan pelanggan
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="bg-neutral-100 px-3 py-2 rounded-md border border-neutral-200 flex items-center gap-2">
+            <Star size={16} className="text-neutral-600" fill="currentColor" />
+            <div className="text-left">
+              <p className="text-[10px] font-semibold text-neutral-500">Rata-rata</p>
+              <p className="text-base font-bold text-neutral-900 leading-none">{averageRating}</p>
+            </div>
+          </div>
+          <div className="bg-neutral-50 px-3 py-2 rounded-md border border-neutral-200">
+            <p className="text-[10px] font-semibold text-neutral-500">Total Ulasan</p>
+            <p className="text-base font-bold text-neutral-900 leading-none">{ratings.length}</p>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="relative w-full md:w-96">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
+      <div className="flex flex-col md:flex-row gap-3">
+        <div className="relative w-full md:w-80">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
           <Input 
-            placeholder="Cari ulasan atau pelanggan..." 
-            className="pl-10 border-stone-200"
+            placeholder="Cari ulasan, pelanggan, atau order..." 
+            className="pl-10 bg-white border-neutral-200"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <div className="flex items-center gap-2 w-full md:w-auto">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button variant="outline" className="gap-2 border-stone-200">
-                  <Filter size={18} />
-                  Filter
-                </Button>
-              }
-            />
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>Status</DropdownMenuLabel>
-                <DropdownMenuCheckboxItem checked={statusFilter === 'Semua'} onCheckedChange={() => setStatusFilter('Semua')}>Semua Status</DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem checked={statusFilter === 'Published'} onCheckedChange={() => setStatusFilter('Published')}>Diterbitkan</DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem checked={statusFilter === 'Pending'} onCheckedChange={() => setStatusFilter('Pending')}>Tertunda</DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem checked={statusFilter === 'Reported'} onCheckedChange={() => setStatusFilter('Reported')}>Dilaporkan</DropdownMenuCheckboxItem>
-              </DropdownMenuGroup>
-              <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>Rating</DropdownMenuLabel>
-                <DropdownMenuCheckboxItem checked={ratingFilter === 'Semua'} onCheckedChange={() => setRatingFilter('Semua')}>Semua Bintang</DropdownMenuCheckboxItem>
-                {[5, 4, 3, 2, 1].map(num => (
-                  <DropdownMenuCheckboxItem key={num} checked={ratingFilter === num} onCheckedChange={() => setRatingFilter(num)}>
-                    {num} Bintang
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button variant="outline" className="gap-2 border-neutral-200">
+                <Filter size={18} />
+                {statusFilter !== 'Semua' ? `Filter: ${statusFilter}` : 'Filter'}
+              </Button>
+            }
+          />
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Status</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => setStatusFilter('Semua')}>
+                <CheckCircle2 size={14} className="mr-2 text-stone-400" />
+                Semua Status
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setStatusFilter('Published')}>
+                <CheckCircle2 size={14} className="mr-2 text-emerald-500" />
+                Diterbitkan
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setStatusFilter('Pending')}>
+                <Clock size={14} className="mr-2 text-amber-500" />
+                Tertunda
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setStatusFilter('Reported')}>
+                <AlertCircle size={14} className="mr-2 text-red-500" />
+                Dilaporkan
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Rating</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => setRatingFilter('Semua')}>
+                <Star size={14} className="mr-2 text-stone-400" />
+                Semua Bintang
+              </DropdownMenuItem>
+              {[5, 4, 3, 2, 1].map(num => (
+                <DropdownMenuItem key={num} onClick={() => setRatingFilter(num)}>
+                  <div className="flex items-center gap-1 mr-2">
+                    {[...Array(5)].map((_, i) => (
+                      <Star 
+                        key={i} 
+                        size={12} 
+                        className={i < num ? "text-amber-400 fill-amber-400" : "text-stone-200"} 
+                      />
+                    ))}
+                  </div>
+                  {num} Bintang
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
-      <div className="grid gap-4">
-        {filteredRatings.length > 0 ? (
-          filteredRatings.map((rating) => (
-            <Card key={rating.id} className="border-stone-200 hover:border-orange-200 transition-colors">
-              <CardContent className="p-6">
-                <div className="flex flex-col md:flex-row justify-between gap-4">
-                  <div className="space-y-3 flex-1">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-stone-100 flex items-center justify-center text-stone-500">
-                        <User size={20} />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-stone-900">{rating.customerName}</h4>
-                        <p className="text-xs text-stone-500">{rating.date} • Pesanan {rating.orderId}</p>
-                      </div>
-                      <Badge variant="outline" className={cn(
-                        "ml-auto md:ml-0 font-normal",
-                        rating.status === 'Published' && "bg-emerald-50 text-emerald-700 border-emerald-100",
-                        rating.status === 'Pending' && "bg-amber-50 text-amber-700 border-amber-100",
-                        rating.status === 'Reported' && "bg-red-50 text-red-700 border-red-100",
-                      )}>
-                        {rating.status === 'Published' ? 'Diterbitkan' : rating.status === 'Pending' ? 'Tertunda' : 'Dilaporkan'}
-                      </Badge>
-                    </div>
-
-                    <div className="flex gap-1">
-                      {[...Array(5)].map((_, i) => (
-                        <Star 
-                          key={i} 
-                          size={16} 
-                          className={cn(i < rating.rating ? "text-amber-400 fill-amber-400" : "text-stone-200")} 
-                        />
-                      ))}
-                    </div>
-
-                    <p className="text-stone-700 italic">"{rating.comment}"</p>
-
-                    {rating.reply && (
-                      <div className="bg-stone-50 border-l-2 border-orange-200 p-3 mt-3 rounded-r-md">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Reply size={14} className="text-orange-500" />
-                          <span className="text-[10px] font-bold text-stone-900 uppercase">Balasan Pemilik</span>
-                        </div>
-                        <p className="text-sm text-stone-600">{rating.reply}</p>
-                      </div>
-                    )}
+      <div className="rounded-lg border border-neutral-200 bg-white overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-neutral-50 hover:bg-neutral-50">
+              <TableHead className="w-12 text-center">Rating</TableHead>
+              <TableHead>Pelanggan</TableHead>
+              <TableHead>Ulasan</TableHead>
+              <TableHead>Order</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Tanggal</TableHead>
+              <TableHead className="w-12 text-right">Aksi</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-16">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="h-8 w-8 rounded-full border-2 border-neutral-200 border-t-neutral-900 animate-spin" />
+                    <p className="text-sm text-neutral-500">Memuat data rating...</p>
                   </div>
-
-                  <div className="flex items-start gap-2 md:flex-col md:justify-start">
-                    {!rating.reply && rating.status === 'Published' && (
-                      <Button variant="outline" size="sm" className="gap-2 border-stone-200 text-stone-600 w-full md:w-auto" onClick={() => toast.info("Fitur balas ulasan segera hadir!")}>
-                        <Reply size={14} />
-                        Balas
-                      </Button>
-                    )}
+                </TableCell>
+              </TableRow>
+            ) : filteredRatings.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7}>
+                  <EmptyState
+                    icon={<MessageSquare size={48} className="text-neutral-300" />}
+                    title="Ulasan tidak ditemukan"
+                    description={
+                      searchTerm || statusFilter !== 'Semua' || ratingFilter !== 'Semua'
+                        ? "Coba ubah kata kunci pencarian atau filter Anda."
+                        : "Belum ada ulasan dari pelanggan saat ini."
+                    }
+                    action={
+                      (searchTerm || statusFilter !== 'Semua') && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            setSearchTerm('');
+                            setStatusFilter('Semua');
+                            setRatingFilter('Semua');
+                          }}
+                        >
+                          Reset Filter
+                        </Button>
+                      )
+                    }
+                  />
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredRatings.map((rating) => (
+                <TableRow key={rating.id} className="hover:bg-neutral-50">
+                  <TableCell className="text-center">
+                    <div className="flex items-center justify-center gap-0.5">
+                      <span className="font-bold text-neutral-900 text-sm">{rating.rating}</span>
+                      <Star size={14} className="text-amber-400 fill-amber-400" />
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div>
+                      <p className="font-semibold text-neutral-900 text-sm">{rating.customerName}</p>
+                      <p className="text-xs text-neutral-500">Order #{rating.orderId}</p>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="max-w-xs">
+                      <p className="text-sm text-neutral-700 line-clamp-2">"{rating.comment}"</p>
+                      {rating.menuName && (
+                        <p className="text-[10px] text-neutral-400 mt-1">Menu: {rating.menuName}</p>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-xs font-mono text-neutral-600">#{rating.orderId}</span>
+                  </TableCell>
+                  <TableCell>
+                    {getStatusBadge(rating.status)}
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-xs text-neutral-500">{rating.date}</span>
+                  </TableCell>
+                  <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger
                         render={
-                          <Button variant="ghost" size="icon" className="text-stone-400">
-                            <MoreVertical size={18} />
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-400 hover:text-neutral-700">
+                            <MoreVertical size={16} />
                           </Button>
                         }
                       />
-                      <DropdownMenuContent align="end">
+                      <DropdownMenuContent align="end" className="w-48">
                         <DropdownMenuGroup>
-                          <DropdownMenuLabel>Tindakan</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
+                          {!rating.reply && rating.status === 'Published' && replyingId !== rating.id && (
+                            <DropdownMenuItem onClick={() => {
+                              setReplyingId(rating.id);
+                              setReplyText('');
+                            }}>
+                              <Reply size={14} className="mr-2 text-neutral-700" />
+                              Balas
+                            </DropdownMenuItem>
+                          )}
                           {rating.status !== 'Published' && (
                             <DropdownMenuItem onClick={() => handleUpdateStatus(rating.id, 'Published')}>
                               <CheckCircle2 size={14} className="mr-2 text-emerald-500" />
-                              Terbitkan (Publish)
+                              Terbitkan
                             </DropdownMenuItem>
                           )}
                           {rating.status !== 'Pending' && (
@@ -236,31 +374,77 @@ export function RatingManagement() {
                             </DropdownMenuItem>
                           )}
                           {rating.status !== 'Reported' && (
-                            <DropdownMenuItem className="text-red-600" onClick={() => handleUpdateStatus(rating.id, 'Reported')}>
+                            <DropdownMenuItem onClick={() => handleUpdateStatus(rating.id, 'Reported')} className="text-red-600">
                               <AlertCircle size={14} className="mr-2" />
-                              Laporkan (Spam/Kasar)
+                              Laporkan
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-red-600 focus:bg-red-50" onClick={() => handleDelete(rating.id)}>
+                          <DropdownMenuItem onClick={() => handleDelete(rating.id)} className="text-red-600">
                             Hapus Rating
                           </DropdownMenuItem>
                         </DropdownMenuGroup>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        ) : (
-          <div className="text-center py-20 bg-stone-50 rounded-xl border border-dashed border-stone-200">
-            <MessageSquare size={48} className="mx-auto text-stone-300 mb-4" />
-            <h3 className="text-lg font-medium text-stone-900">Ulasan tidak ditemukan</h3>
-            <p className="text-stone-500">Coba ubah kata kunci pencarian atau filter Anda.</p>
-          </div>
-        )}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
       </div>
+
+      {!isLoading && filteredRatings.length > 0 && (
+        <div className="text-sm text-neutral-500 flex items-center justify-between">
+          <span>
+            Menampilkan <span className="font-semibold text-neutral-900">{filteredRatings.length}</span> dari <span className="font-semibold text-neutral-900">{ratings.length}</span> ulasan
+          </span>
+          {statusFilter !== 'Semua' && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setStatusFilter('Semua')}
+              className="text-neutral-700 hover:text-neutral-800"
+            >
+              Reset Filter
+            </Button>
+          )}
+        </div>
+      )}
+
+      <Dialog open={!!replyingId} onOpenChange={(open) => !open && setReplyingId(null)}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Balas Ulasan</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="reply">Balasan</Label>
+              <Textarea
+                id="reply"
+                placeholder="Tulis balasan Anda..."
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                className="min-h-[120px] resize-none"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setReplyingId(null);
+              setReplyText('');
+            }}>
+              Batal
+            </Button>
+            <Button 
+              onClick={() => replyingId && handleSendReply(replyingId)}
+              className="bg-neutral-900 hover:bg-neutral-800"
+            >
+              Kirim Balasan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

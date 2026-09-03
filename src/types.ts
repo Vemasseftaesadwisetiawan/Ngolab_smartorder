@@ -8,6 +8,8 @@ export interface Order {
   total: number;
   status: OrderStatus;
   createdAt: string;
+  paymentProofUrl?: string;
+  paymentProofStatus?: 'pending' | 'approved' | 'rejected';
 }
 
 export interface OrderItem {

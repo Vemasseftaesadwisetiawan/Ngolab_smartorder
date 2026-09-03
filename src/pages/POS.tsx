@@ -13,7 +13,9 @@ import {
   History,
   Trophy,
   Loader2,
-  QrCode
+  QrCode,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,6 +33,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { apiFetch } from '@/lib/apiFetch';
 
 interface Ingredient {
   stockId: string;
@@ -58,17 +61,23 @@ interface CartItem extends MenuItem {
 
 interface POSProps {
   menuItems: MenuItem[];
+  setMenuItems: React.Dispatch<React.SetStateAction<MenuItem[]>>;
   setOrders: React.Dispatch<React.SetStateAction<any[]>>;
   stockItems: any[];
   setStockItems: React.Dispatch<React.SetStateAction<any[]>>;
 }
 
-export function POS({ menuItems, setOrders, stockItems, setStockItems }: POSProps) {
+export function POS({ menuItems, setMenuItems, setOrders, stockItems, setStockItems }: POSProps) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState('Semua');
   const [isProcessing, setIsProcessing] = useState(false);
   
+  // Promo States
+  const [promoCode, setPromoCode] = useState('');
+  const [appliedPromoCode, setAppliedPromoCode] = useState('');
+  const [discountAmountState, setDiscountAmountState] = useState(0);
+
   // Payment States
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'QRIS' | null>(null);
@@ -77,8 +86,57 @@ export function POS({ menuItems, setOrders, stockItems, setStockItems }: POSProp
   const categories = ['Semua', ...Array.from(new Set(menuItems.map(item => item.category)))];
 
   const subtotal = cart.reduce((sum, item) => sum + ((item.promoPrice || item.price) * item.quantity), 0);
-  const tax = subtotal * 0.1;
-  const total = subtotal + tax;
+  const discountAmount = discountAmountState;
+  const subtotalAfterDiscount = Math.max(0, subtotal - discountAmount);
+  const tax = subtotalAfterDiscount * 0.1;
+  const total = subtotalAfterDiscount + tax;
+
+  const handleApplyPromo = async () => {
+    const inputCode = promoCode.trim().toUpperCase();
+    if (!inputCode) {
+      toast.error("Masukkan kode promo");
+      return;
+    }
+
+    try {
+      const res = await apiFetch('/api/promos');
+      const promos = await res.json();
+      const matched = Array.isArray(promos) ? promos.find((p: any) => p.code?.toUpperCase() === inputCode) : null;
+
+      if (!matched) {
+        toast.error("Kode promo tidak ditemukan");
+        return;
+      }
+
+      if (matched.status !== 'Active') {
+        toast.error("Kode promo sudah tidak aktif");
+        return;
+      }
+
+      if (matched.maxUsage && matched.usageCount >= matched.maxUsage) {
+        toast.error("Kuota penggunaan kode promo telah habis");
+        return;
+      }
+
+      if (matched.minPurchase && subtotal < matched.minPurchase) {
+        toast.error(`Minimal pembelian untuk promo ini adalah Rp ${Number(matched.minPurchase).toLocaleString('id-ID')}`);
+        return;
+      }
+
+      let discount = 0;
+      if (matched.type === 'Persentase' || matched.type === 'Percentage') {
+        discount = subtotal * (Number(matched.discount) / 100);
+      } else {
+        discount = Number(matched.discount);
+      }
+
+      setDiscountAmountState(discount);
+      setAppliedPromoCode(inputCode);
+      toast.success(`Promo ${matched.title || inputCode} berhasil diterapkan! Hemat Rp ${discount.toLocaleString('id-ID')}`);
+    } catch (err) {
+      toast.error("Gagal memvalidasi kode promo");
+    }
+  };
 
   const change = useMemo(() => {
     const paid = parseFloat(amountPaid) || 0;
@@ -91,11 +149,34 @@ export function POS({ menuItems, setOrders, stockItems, setStockItems }: POSProp
     return false;
   }, [paymentMethod, amountPaid, total]);
 
+  const toggleDisplay = async (id: string) => {
+    const itemToToggle = menuItems.find(i => i.id === id);
+    if (!itemToToggle) return;
+    
+    const newState = !itemToToggle.displayed;
+
+    try {
+      const response = await apiFetch(`/api/menu/${id}/display`, {
+        method: 'PUT',
+        body: JSON.stringify({ displayed: newState })
+      });
+      
+      if (!response.ok) throw new Error('Gagal update ke server');
+
+      setMenuItems(prev => prev.map(item => 
+        item.id === id ? { ...item, displayed: newState } : item
+      ));
+      toast.success(`${itemToToggle.name} ${newState ? 'diaktifkan' : 'dinonaktifkan'}`);
+    } catch (err) {
+      toast.error('Gagal menyimpan perubahan ke database MySQL');
+    }
+  };
+
   const filteredItems = useMemo(() => {
     return menuItems.filter(item => {
       const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = activeCategory === 'Semua' || item.category === activeCategory;
-      return matchesSearch && matchesCategory && item.displayed;
+      return matchesSearch && matchesCategory;
     });
   }, [menuItems, searchTerm, activeCategory]);
 
@@ -136,9 +217,8 @@ export function POS({ menuItems, setOrders, stockItems, setStockItems }: POSProp
 
     setIsProcessing(true);
 
-    const orderId = `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
-    const newOrder = {
-      id: orderId,
+    const buildOrder = () => ({
+      id: `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
       table: 'Take Away',
       customer: 'Customer Take Away',
       items: cart.map(item => ({
@@ -152,33 +232,50 @@ export function POS({ menuItems, setOrders, stockItems, setStockItems }: POSProp
       paymentMethod,
       amountPaid: paymentMethod === 'Cash' ? parseFloat(amountPaid) : total,
       change: paymentMethod === 'Cash' ? change : 0,
-      type: 'POS'
-    };
+      type: 'Takeaway',
+      promoCode: appliedPromoCode || undefined
+    });
 
     try {
-      // 1. Kirim Pesanan ke Backend
-      const response = await fetch('http://localhost:5000/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newOrder)
-      });
-      
-      if (!response.ok) throw new Error('Gagal memproses transaksi di server');
+      let response: Response;
+      let attempts = 0;
+      while (attempts < 5) {
+        const attemptOrder = buildOrder();
+        response = await apiFetch('/api/orders', {
+          method: 'POST',
+          body: JSON.stringify(attemptOrder)
+        });
+        
+        if (response.ok) {
+          const orderForUI = {
+            ...attemptOrder,
+            status: 'Menunggu',
+            time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+            date: new Date().toLocaleDateString('id-ID'),
+          };
+          setOrders(prev => [orderForUI, ...prev]);
+          break;
+        }
+        
+        const errData = await response.json().catch(() => ({}));
+        const msg = errData?.details || errData?.error || '';
+        if (response.status === 500 && /Duplicate entry/.test(String(msg))) {
+          attempts++;
+          continue;
+        }
+        throw new Error(errData.error || 'Gagal memproses transaksi di server');
+      }
 
-      // 2. Tambahkan ke state lokal agar langsung muncul di KDS & History
-      const orderForUI = {
-        ...newOrder,
-        status: 'Menunggu',
-        time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-        date: new Date().toLocaleDateString('id-ID'),
-      };
-      setOrders(prev => [orderForUI, ...prev]);
+      if (!response.ok) throw new Error('Gagal memproses transaksi di server setelah retry');
 
       // 3. Reset form
       setCart([]);
       setShowPaymentDialog(false);
       setAmountPaid('');
       setPaymentMethod(null);
+      setPromoCode('');
+      setAppliedPromoCode('');
+      setDiscountAmountState(0);
       toast.success('Transaksi berhasil diproses dan disimpan ke Database!');
 
     } catch (error) {
@@ -230,90 +327,105 @@ export function POS({ menuItems, setOrders, stockItems, setStockItems }: POSProp
 
         <ScrollArea className="flex-1 pr-4">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-4">
-            {filteredItems.map(item => (
-              <Card 
-                key={item.id} 
-                className="group overflow-hidden border-none shadow-md hover:shadow-lg transition-all cursor-pointer active:scale-95"
-                onClick={() => addToCart(item)}
-              >
-                <div className="aspect-square bg-stone-100 relative overflow-hidden">
-                  <img 
-                    src={item.image || `https://picsum.photos/seed/${item.id}/400/400`} 
-                    alt={item.name}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                    referrerPolicy="no-referrer"
-                  />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-                  <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
-                    {item.promoPrice ? (
-                      <>
-                        <Badge className="bg-orange-600 text-white border-none backdrop-blur-sm animate-pulse">
-                          Rp {(item.promoPrice || 0).toLocaleString()}
-                        </Badge>
-                        <Badge variant="outline" className="bg-white/90 text-stone-400 border-none backdrop-blur-sm line-through text-[10px]">
+            {filteredItems.map(item => {
+              const isDeactivated = !item.displayed;
+              return (
+                <Card 
+                  key={item.id} 
+                  className={cn(
+                    "group overflow-hidden border border-neutral-200 bg-white transition-colors cursor-pointer",
+                    isDeactivated && "opacity-40"
+                  )}
+                  onClick={() => !isDeactivated && addToCart(item)}
+                >
+                  <div className="aspect-square bg-neutral-100 relative overflow-hidden">
+                    <img 
+                      src={item.image || `https://picsum.photos/seed/${item.id}/400/400`} 
+                      alt={item.name}
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleDisplay(item.id);
+                      }}
+                      className={cn(
+                        "absolute top-2 left-2 p-1.5 rounded-md bg-white/90 border border-neutral-200 transition-colors",
+                        item.displayed ? "text-neutral-900" : "text-neutral-400"
+                      )}
+                    >
+                      {item.displayed ? <Eye size={14} /> : <EyeOff size={14} />}
+                    </button>
+                    <div className="absolute top-2 right-2">
+                      {item.promoPrice ? (
+                        <>
+                          <Badge className="bg-neutral-900 text-white border-0 mr-1">
+                            Rp {(item.promoPrice || 0).toLocaleString()}
+                          </Badge>
+                          <Badge variant="outline" className="bg-white text-neutral-400 border-neutral-200 line-through text-[10px]">
+                            Rp {(item.price || 0).toLocaleString()}
+                          </Badge>
+                        </>
+                      ) : (
+                        <Badge className="bg-white text-neutral-900 border border-neutral-200">
                           Rp {(item.price || 0).toLocaleString()}
                         </Badge>
-                      </>
-                    ) : (
-                      <Badge className="bg-white/90 text-stone-900 border-none backdrop-blur-sm">
-                        Rp {(item.price || 0).toLocaleString()}
-                      </Badge>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
-                <CardContent className="p-3">
-                  <h3 className="font-bold text-stone-900 truncate">{item.name}</h3>
-                  <p className="text-xs text-stone-500 mt-1">{item.category}</p>
-                </CardContent>
-              </Card>
-            ))}
+                  <CardContent className="p-3">
+                    <h3 className="font-medium text-neutral-900 truncate text-sm">{item.name}</h3>
+                    <p className="text-[11px] text-neutral-500 mt-0.5">{item.category}</p>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </ScrollArea>
       </div>
 
       {/* Right Side: Cart & Checkout */}
-      <Card className="w-[400px] flex flex-col border-none shadow-xl bg-white overflow-hidden">
-        <CardHeader className="border-b border-stone-100 pb-4">
+      <Card className="w-[380px] flex flex-col border border-neutral-200 bg-white">
+        <CardHeader className="border-b border-neutral-100 pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center text-orange-600">
-                <ShoppingCart size={18} />
+              <div className="w-7 h-7 rounded-md bg-neutral-900 text-white flex items-center justify-center">
+                <ShoppingCart size={16} />
               </div>
-              <CardTitle className="text-lg">Daftar Pesanan</CardTitle>
+              <CardTitle className="text-base font-semibold">Daftar Pesanan</CardTitle>
             </div>
-            <Badge variant="outline" className="bg-stone-50 text-stone-600 border-stone-200">
-              {cart.reduce((a, b) => a + b.quantity, 0)} Item
-            </Badge>
+            <span className="text-[11px] font-medium text-neutral-500">{cart.reduce((a, b) => a + b.quantity, 0)} item</span>
           </div>
         </CardHeader>
         
-        <div className="px-6 py-4 bg-orange-50 border-b border-orange-100 flex items-center justify-between">
+        <div className="px-4 py-3 bg-neutral-50 border-b border-neutral-100 flex items-center justify-between">
           <div>
-            <label className="text-[10px] font-bold text-orange-600 uppercase tracking-wider block">Tipe Pesanan</label>
-            <span className="text-sm font-bold text-stone-900 mt-1 block">🛍️ Take Away (Bungkus)</span>
+            <label className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wide block">Tipe Pesanan</label>
+            <span className="text-sm font-medium text-neutral-900 mt-0.5 block">Take Away</span>
           </div>
-          <Badge className="bg-orange-600 text-white border-none shadow-sm">KASIR</Badge>
+          <span className="text-[11px] font-medium px-2 py-1 rounded-md bg-neutral-900 text-white">KASIR</span>
         </div>
 
         <ScrollArea className="flex-1">
-          <div className="p-6 space-y-4">
+          <div className="p-4 space-y-3">
             {cart.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-stone-400 text-center">
-                <div className="w-16 h-16 rounded-full bg-stone-50 flex items-center justify-center mb-4">
-                  <ShoppingCart size={24} className="opacity-20" />
+              <div className="flex flex-col items-center justify-center py-16 text-neutral-400 text-center">
+                <div className="w-12 h-12 rounded-full bg-neutral-100 flex items-center justify-center mb-3">
+                  <ShoppingCart size={20} className="opacity-40" />
                 </div>
-                <p className="text-sm font-medium">Keranjang kosong</p>
-                <p className="text-xs mt-1">Pilih menu di sebelah kiri untuk<br/>memulai pesanan</p>
+                <p className="text-sm font-medium text-neutral-600">Keranjang kosong</p>
+                <p className="text-[11px] mt-1 text-neutral-500">Pilih menu untuk memulai pesanan</p>
               </div>
             ) : (
               cart.map(item => (
-                <div key={item.id} className="flex gap-3 group">
-                  <div className="w-12 h-12 rounded-lg bg-stone-100 overflow-hidden shrink-0">
+                <div key={item.id} className="flex gap-3">
+                  <div className="w-10 h-10 rounded-md bg-neutral-100 overflow-hidden shrink-0 border border-neutral-200">
                     <img src={item.image || `https://picsum.photos/seed/${item.id}/100/100`} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h4 className="text-sm font-bold text-stone-900 truncate">{item.name}</h4>
-                    <p className="text-xs text-orange-600 font-bold mt-0.5">Rp {((item.promoPrice || item.price || 0) * item.quantity).toLocaleString()}</p>
+                    <h4 className="text-sm font-medium text-neutral-900 truncate">{item.name}</h4>
+                    <p className="text-[11px] text-neutral-500 font-medium mt-0.5">Rp {((item.promoPrice || item.price || 0) * item.quantity).toLocaleString()}</p>
                     
                     {/* Optional Note Input */}
                     <div className="mt-2">
@@ -356,11 +468,37 @@ export function POS({ menuItems, setOrders, stockItems, setStockItems }: POSProp
         </ScrollArea>
 
         <CardFooter className="flex-col gap-4 p-6 bg-stone-50/50 border-t border-stone-100">
-            <div className="w-full space-y-2">
+          {/* Promo Code Input */}
+          <div className="w-full flex gap-2 pb-3 border-b border-stone-100">
+            <Input 
+              id="promo-code-input"
+              placeholder="Masukkan kode promo..." 
+              value={promoCode}
+              onChange={(e) => setPromoCode(e.target.value)}
+              className="h-9 text-xs bg-white border-stone-200"
+              disabled={cart.length === 0}
+            />
+            <Button 
+              variant="outline" 
+              onClick={handleApplyPromo}
+              className="h-9 text-xs border-stone-200 font-bold hover:text-orange-600 hover:border-orange-200"
+              disabled={cart.length === 0}
+            >
+              Terapkan
+            </Button>
+          </div>
+
+          <div className="w-full space-y-2">
             <div className="flex justify-between text-sm text-stone-500">
               <span>Subtotal</span>
               <span>Rp {(subtotal || 0).toLocaleString()}</span>
             </div>
+            {discountAmount > 0 && (
+              <div className="flex justify-between text-sm text-green-600 font-bold">
+                <span>Diskon {appliedPromoCode ? `(${appliedPromoCode})` : ''}</span>
+                <span>- Rp {(discountAmount || 0).toLocaleString()}</span>
+              </div>
+            )}
             <div className="flex justify-between text-sm text-stone-500">
               <span>Pajak (10%)</span>
               <span>Rp {(tax || 0).toLocaleString()}</span>

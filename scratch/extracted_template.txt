@@ -1,0 +1,204 @@
+
+LAPORAN PENGUJIAN PERANGKAT LUNAK
+“<<nama perangkat lunak>>”
+
+
+
+Disusun untuk Memenuhi Tugas 
+Matakuliah Pengujian Perangkat Lunak (GCK2KAB2)
+Semester Genap Tahun Ajaran 2025-2026
+
+
+Oleh:
+Tim Penguji Perangkat Lunak
+<<nim 1>>
+<<nama 1>>
+<<nim 2>>
+<<nama 2>>
+<<nim 3>>
+<<nama 3>>
+
+
+
+
+Program Studi D3 Sistem Informasi
+Fakultas Ilmu Terapan
+Universitas Telkom
+
+DAFTAR ISI
+
+DAFTAR ISIi
+DAFTAR GAMBARii
+DAFTAR TABELiii
+1Perencanaan Pengujian1
+1.1Instalasi Sistem1
+1.1.1System Requirements1
+1.1.2System Deployment1
+1.2Instalasi Tools Pengujian2
+1.3Cakupan Pengujian2
+1.3.1Fungsionalitas Sistem2
+1.3.2Teknik Pengujian3
+1.3.3Jadwal dan Pengawakan3
+2Perancangan Pengujian4
+3Hasil Pengujian5
+4Kesimpulan7
+
+
+
+DAFTAR GAMBAR
+
+Gambar 11 Langkah-Langkah Instalasi2
+
+
+
+DAFTAR TABEL
+
+Tabel 11 Kebutuhan Perangkat Keras1
+Tabel 12 Kebutuhan Perangkat Lunak1
+Tabel 21 Rancangan Pengujian Fungsionalitas Login4
+Tabel 31 Hasil Pengujian Fungsionalitas Login5
+
+
+
+Perencanaan Pengujian
+Bab 1 laporan pengujian perangkat lunak menjelaskan tahapan perencanan pengujian, dimana tim penguji perangkat lunak harus menyiapkan software under test (SUT) serta perangkat lunak yang digunakan untuk mendukung eksekusi test case secara otomatis. Secara lengkap, tim penguji harus melaporkan langkah-langkah instalasi sistem dan tools pengujian, serta menentukan cakupan pengujian termasuk didalamnya jadwal pelaksanaan pengujian.
+Instalasi Sistem
+Pada proses instalasi sistem, tim penguji perlu menjelaskan minimum requirement yang dibutuhkan untuk menjalankan sistem. Requirement yang dimaksud mencakup kebutuhan perangkat lunak dan perangkat keras yang harus disediakan sehingga sistem dapat digunakan untuk menjalankan setiap fungsionalitasnya. Selanjutnya, tim penguji harus menjelaskan langkah-langkah yang dilakukan pada proses instalasi sistem.
+System Requirements 
+Tabel 11 Kebutuhan Perangkat Keras
+Perangkat Keras
+Spesifikasi Minimal
+Processor
+
+RAM
+
+Storage
+
+
+Tabel 12 Kebutuhan Perangkat Lunak
+Perangkat Lunak
+Spesifikasi Minimal
+Bahasa Pemrograman
+
+DBMS
+
+Framework
+
+Web Browser
+
+
+System Deployment
+Tim penguji perangkat lunak harus dapat menjelaskan tahapan-tahapan yang dilakukan untuk melakukan instalasi sistem di lingkungan pengujian. Untuk memberikan ilustrasi yang lengkap, diperkenankan untuk menambahkan gambar, diagram, ataupun penjelasan secara deskriptif sehingga pembaca laporan dapat mengulangi langkah yang sama jika ingin melakukan instalasi sistem.
+
+Gambar 11 Langkah-Langkah Instalasi
+Instalasi Tools Pengujian
+Eksekusi test case dapat dilakukan dengan menggunakan bantuan perangkat lunak automation testing seperti: selenium, testcomplete, katalon studio, dll. Tim penguji diperkenankan untuk memilih salah satu perangkat lunak tersebut. Selanjutnya, tim penguji harus menjelaskan tahapan atau langkah-langkah instalasi automation testing software.
+Cakupan Pengujian
+Untuk membatasi proses pengujian, tim penguji perlu menentukan fungsionalitas yang akan diuji, teknik pengujian, serta penentuan jadwal pelaksanaan pengujian. Pada sub bab ini tim peneliti menjelaskan semua cakupan proses pengujian.
+Fungsionalitas Sistem 
+Tim penguji harus mendeskripsikan semua fungsionalitas yang terdapat pada sistem. Deskripsi yang disampaikan setidaknya mencakup: kemampuan utama fitur, skema data input dan output, serta kriteria keberhasilan fitur. Setiap fungsionalitas yang dideskripsikan dapat dibuat dalam bentuk numbering.
+Fungsionalitas Login
+Fungsionalitas login digunakan untuk memeriksa (autentikasi) pengguna yang berhak mengakses sistem. Pada fungsionalitas login, pengguna diharuskan mengisikan username dan password. Autentikasi pengguna dilakukan dengan memeriksa kesesuaian username dan password yang diisikan dengan data yang tersimpan pada tabel user. Sistem akan mengembalikan pesan error jika hasil pemeriksaan dinyatakan gagal (FALSE). Sebaliknya, jika pemeriksaan dinyatakan berhasil (TRUE), maka pengguna akan diarahkan ke halaman dashboard.
+Teknik Pengujian
+Pada proses pengujian, tim penguji harus menentukan pendekatan dan teknik yang digunakan untuk menyusun test case dan menentukan test data. Pada sub bab ini, tim penguji menjelaskan pendekatan dan teknik pengujian yang digunakan.
+Jadwal dan Pengawakan 
+Pembuatan rancangan (test case) dan pelaksanaan pengujian harus dijadwalkan dengan melibatkan seluruh anggota tim penguji sebagai perancang dan pelaksana pengujian. Pada sub bab ini tim penguji menentukan jadwal pelaksanaan pengujian sekaligus memetakan anggota tim dengan fungsionalitas-fungsionalitas yang akan diujinya.
+
+Perancangan Pengujian 
+Bab 2 pada laporan pengujian berisi deskripsi test case yang dirancang untuk menguji setiap fungsionalitas yang tersedia pada sistem. Test case yang dibuat harus mengimplementasikan pendekatan dan teknik pengujian yang telah dijelaskan pada bab 1.
+Tabel 21 Rancangan Pengujian Fungsionalitas Login
+Fungsionalitas
+ID Test Case
+Deskripsi/Skenario
+Pra Kondisi
+Langkah Pengujian
+Data Pengujian
+Hasil yang Diharapkan
+Login
+TC1.1
+Pengguna tidak mengisikan username dan password 
+Pengguna berada pada homepage
+Klik link Log in
+Klik tombol Login
+username = null
+password = null
+Login gagal, disampaikan pesan error
+
+TC1.2
+User mengisikan password yang salah
+Pengguna berada pada homepage
+Klik link Log in
+Isikan username
+Isikan password
+Klik tombol Login
+username = admin
+password = rahasia
+Login gagal, disampaikan pesan error
+
+TC 1.3
+User mengisikan username dan password yang benar
+Pengguna berada pada homepage
+Klik link Log in
+Isikan username
+Isikan password
+Klik tombol Login
+username = admin
+password = m3Rdek@
+Login berhasil, diarahkan ke halaman dashboard
+
+
+Hasil Pengujian 
+Rancangan pengujian yang telah dirinci pada bab 2 selanjutnya dieksekusi menggunakan tools pengujian yang telah dipilih. Pada bab 3, tim penguji melaporkan hasil eksekusi langkah pengujian dan data pengujian sehingga dapat membandingkan hasil aktual sistem dengan hasil yang diharapkan. Jika hasil aktual sistem sama dengan hasil yang diharapkan, maka test case dapat dinyatakan pass. Sebaliknya, jika hasil aktual sistem tidak sama dengan hasil yang diharapkan, maka test case dapat dinyatakan failed. 
+Tabel 31 Hasil Pengujian Fungsionalitas Login
+Fungsionalitas
+ID Test Case
+Command
+Hasil Aktual
+Kesimpulan
+Login
+TC1.1
+self.driver.get("http://localhost/")
+self.driver.set_window_size(1114, 674)
+self.driver.find_element(By.LINK_TEXT, "Log in").click()
+self.driver.find_element(By.ID, "loginbtn").click()
+self.driver.find_element(By.CSS_SELECTOR, ".alert").click()
+assert self.driver.find_element(By.ID, "loginerrormessage").text == "Invalid login, please try again"
+Sistem menampilkan pesan error “Invalid login, please try again”
+pass
+
+TC1.2
+self.driver.get("http://localhost/")
+self.driver.set_window_size(1114, 674)
+self.driver.find_element(By.LINK_TEXT, "Log in").click()
+self.driver.find_element(By.ID, "username").click()
+self.driver.find_element(By.ID, "username").send_keys("admin")
+self.driver.find_element(By.ID, "password").click()
+self.driver.find_element(By.ID, "password").send_keys("rahasia")
+self.driver.find_element(By.ID, "loginbtn").click()
+self.driver.find_element(By.CSS_SELECTOR, ".alert").click()
+assert self.driver.find_element(By.ID, "loginerrormessage").text == "Invalid login, please try again"
+self.driver.close()
+Sistem menampilkan pesan error “Invalid login, please try again”
+pass
+
+TC 1.3
+self.driver.get("http://localhost/")
+self.driver.set_window_size(1114, 674)
+self.driver.find_element(By.LINK_TEXT, "Log in").click()
+self.driver.find_element(By.ID, "username").click()
+self.driver.find_element(By.ID, "username").send_keys("admin")
+self.driver.find_element(By.ID, "password").click()
+self.driver.find_element(By.ID, "password").send_keys("pplD3SI@2023")
+self.driver.find_element(By.CSS_SELECTOR, ".login-form-submit").click()
+self.driver.find_element(By.ID, "loginbtn").click()
+assert self.driver.find_element(By.LINK_TEXT, "Dashboard").text == "Dashboard"
+Sistem mengarahkan pengguna ke halaman dashboard
+Pass
+Persentase keberhasilan (pass)
+100%
+
+
+
+
+Kesimpulan
+Pada bab ini, tim penguji membuat kesimpulan hasil pengujian. Setidaknya, tim penguji dapat menyampaikan persentase fungsionalitas yang telah melewati proses pengujian dan defect yang ditemukan. Lebih rinci, tim penguji dapat memberikan analisis hasil pengujian dengan menyampaikan saran-saran perbaikan sistem yang dapat menjadi umpan balik bagi tim pengembang,

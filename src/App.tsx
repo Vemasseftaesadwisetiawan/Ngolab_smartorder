@@ -1,24 +1,31 @@
-import React, { useState, useEffect } from 'react';
+'use client';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
+import { ThemeProvider } from '@/components/theme-provider';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { Dashboard } from '@/pages/Dashboard';
 import { POS } from '@/pages/POS';
 import { KDS } from '@/pages/KDS';
-import { Orders } from '@/pages/Orders';
 import { MenuCatalog } from '@/pages/MenuCatalog';
 import { ManageMenu } from '@/pages/ManageMenu';
 import { TableManagement } from '@/pages/TableManagement';
 import { StockManagement } from '@/pages/StockManagement';
+import { RecipeManagement } from '@/pages/RecipeManagement';
 import { TransactionHistory } from '@/pages/TransactionHistory';
 import { PromoManagement } from '@/pages/PromoManagement';
 import { SalesReport } from '@/pages/SalesReport';
-import { StaffManagement } from '@/pages/StaffManagement';
 import { UserManagement } from '@/pages/UserManagement';
 import { RatingManagement } from '@/pages/RatingManagement';
 import { PointsManagement } from '@/pages/PointsManagement';
 import { Settings } from '@/pages/Settings';
 import { Login } from '@/pages/Login';
+import { RatingInput } from '@/pages/RatingInput';
 import { Toaster } from '@/components/ui/sonner';
+import { toast } from 'sonner';
+import { playNotificationChime } from '@/lib/utils';
+import { apiFetch, clearAuthToken, getApiBaseUrl } from '@/lib/apiFetch';
 
 // Initial Data
 // Data menu awal sekarang kosong karena langsung mengambil dari Database MySQL
@@ -72,15 +79,16 @@ export default function App() {
   const [menuItems, setMenuItems] = useState<any[]>([]);
   const [orders, setOrders] = useState(initialOrders);
   const [users, setUsers] = useState(initialUsers);
-  const [promos, setPromos] = useState(initialPromos);
+  const [promos, setPromos] = useState<any[]>([]);
   const [stockItems, setStockItems] = useState(initialStock);
 
-  // Ambil Data Menu dari Database MySQL (Backend) saat aplikasi pertama dimuat
-  useEffect(() => {
-    fetch('http://localhost:5000/api/menu')
+  // Helper to refresh menu items from API
+  const refreshMenu = () => {
+    apiFetch('/api/menu')
       .then(res => res.json())
       .then(data => {
         if (data && !data.error && data.length > 0) {
+          const baseUrl = getApiBaseUrl();
           const menuDariDatabase = data.map((item: any) => ({
             id: String(item.id),
             name: item.name,
@@ -90,39 +98,45 @@ export default function App() {
             stock: item.stock,
             displayed: item.displayed !== undefined ? Boolean(item.displayed) : true,
             description: item.description || '',
-            // Jika ada foto dari database, tambahkan alamat server localhost:5000 di depannya
-            image: item.image_url ? `http://localhost:5000${item.image_url}` : `https://picsum.photos/seed/${item.id}/300/300`,
-            ingredients: item.ingredients || [] // Sekarang mengambil resep dari DB
+            promoPrice: item.promoPrice ? Number(item.promoPrice) : undefined,
+            image: item.image_url ? `${baseUrl}${item.image_url}` : `https://picsum.photos/seed/${item.id}/300/300`,
+            ingredients: (item.ingredients || []).map((ing: any) => ({
+              ...ing,
+              stockId: String(ing.stockId)
+            })),
+            availability_type: item.availability_type || 'permanent',
+            available_from: item.available_from || undefined,
+            available_to: item.available_to || undefined
           }));
           setMenuItems(menuDariDatabase);
         }
       })
-      .catch(err => {
-        console.error("Gagal memanggil API Menu.", err);
-      });
+      .catch(err => console.error("Gagal memanggil API Menu.", err));
+  };
 
-    // Ambil Data Transaksi (Orders)
-    fetch('http://localhost:5000/api/orders')
+  // Helper to refresh stock items from API
+  const refreshStock = () => {
+    apiFetch('/api/stock')
       .then(res => res.json())
       .then(data => {
         if (data && !data.error) {
-          setOrders(data);
-        }
-      })
-      .catch(err => console.error("Gagal memanggil API Orders.", err));
-
-    // Ambil Data Stok Bahan Baku
-    fetch('http://localhost:5000/api/stock')
-      .then(res => res.json())
-      .then(data => {
-        if (data && !data.error) {
-          setStockItems(data);
+          const mapped = data.map((item: any) => ({
+            ...item,
+            id: String(item.id)
+          }));
+          setStockItems(mapped);
         }
       })
       .catch(err => console.error("Gagal memanggil API Stok.", err));
+  };
+
+  // Ambil Data Menu dari Database MySQL (Backend) saat aplikasi pertama dimuat
+  useEffect(() => {
+    refreshMenu();
+    refreshStock();
 
     // Ambil Data Akun Pengguna (Users)
-    fetch('http://localhost:5000/api/users')
+    apiFetch('/api/users')
       .then(res => res.json())
       .then(data => {
         if (data && !data.error) {
@@ -131,14 +145,81 @@ export default function App() {
       })
       .catch(err => console.error("Gagal memanggil API Users.", err));
 
+    // Ambil Data Promo (Promos)
+    apiFetch('/api/promos')
+      .then(res => res.json())
+      .then(data => {
+        if (data && !data.error) {
+          setPromos(data);
+        } else {
+          setPromos(initialPromos);
+        }
+      })
+      .catch(err => {
+        console.error("Gagal memanggil API Promos.", err);
+        setPromos(initialPromos);
+      });
+
+  }, []);
+
+  const knownOrderIdsRef = useRef<Set<string>>(new Set());
+  const isInitialLoadRef = useRef(true);
+
+  // Polling Data Transaksi (Orders) secara berkala (tiap 3 detik) untuk Notifikasi Lonceng KDS
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        const res = await apiFetch('/api/orders');
+        const data = await res.json();
+        if (data && !data.error) {
+          if (isInitialLoadRef.current) {
+            const initialIds = new Set(data.map((o: any) => String(o.id)));
+            knownOrderIdsRef.current = initialIds;
+            isInitialLoadRef.current = false;
+            setOrders(data);
+          } else {
+            let hasNewOrder = false;
+            let newestOrder: any = null;
+
+            data.forEach((order: any) => {
+              const orderIdStr = String(order.id);
+              if (!knownOrderIdsRef.current.has(orderIdStr)) {
+                knownOrderIdsRef.current.add(orderIdStr);
+                if (order.status === 'Menunggu') {
+                  hasNewOrder = true;
+                  newestOrder = order;
+                }
+              }
+            });
+
+            setOrders(data);
+
+            if (hasNewOrder && newestOrder) {
+              playNotificationChime();
+              toast.success(`🔔 Pesanan Baru Masuk! #${newestOrder.id}`, {
+                description: `Meja: ${newestOrder.table || 'Walk-in'} | Rincian: ${newestOrder.items?.length || 0} item`,
+                duration: 8000,
+              });
+              refreshMenu();
+              refreshStock();
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Gagal memanggil API Orders.", err);
+      }
+    };
+
+    fetchOrders();
+    const interval = setInterval(fetchOrders, 3000);
+    return () => clearInterval(interval);
   }, []);
 
   // Logic Update Status Pesanan ke Backend
   const handleUpdateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/orders/${orderId}/status`, {
+      const response = await apiFetch(`/api/orders/${orderId}/status`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
       });
       if (!response.ok) throw new Error('Gagal update status');
@@ -146,12 +227,43 @@ export default function App() {
       // Update state lokal agar UI langsung berubah
       setOrders(prevOrders => {
         const updatedOrders = prevOrders.map(order => 
-          order.id === orderId ? { ...order, status: newStatus } : order
+          order.id === orderId 
+            ? { 
+                ...order, 
+                status: newStatus, 
+                cookingStartedAt: newStatus === 'Sedang Disiapkan' ? new Date().toISOString() : undefined 
+              }
+            : order
         );
         return updatedOrders;
       });
     } catch (err) {
       console.error("Gagal mengupdate status pesanan:", err);
+    }
+  };
+
+  const handleVerifyPaymentProof = async (orderId: string, status: 'approved' | 'rejected') => {
+    try {
+      const response = await apiFetch(`/api/orders/${orderId}/payment-proof/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status })
+      });
+      if (!response.ok) throw new Error('Gagal update verifikasi');
+      
+      setOrders(prevOrders => prevOrders.map(order => 
+        order.id === orderId 
+          ? { 
+              ...order, 
+              paymentProofStatus: status,
+              status: status === 'approved' ? 'Selesai' : order.status
+            }
+          : order
+      ));
+      
+      toast.success(status === 'approved' ? 'Bukti pembayaran disetujui' : 'Bukti pembayaran ditolak');
+    } catch (err) {
+      console.error("Gagal verifikasi bukti pembayaran:", err);
+      toast.error("Gagal memverifikasi bukti pembayaran");
     }
   };
 
@@ -161,17 +273,21 @@ export default function App() {
   }, [activePage]);
 
   const handleLogin = (role: string) => {
+    console.log('handleLogin called with role:', role);
     setIsAuthenticated(true);
     setUserRole(role);
     // Simpan sesi ke memori browser agar tidak hilang saat di-refresh
     localStorage.setItem('smartorder_auth', 'true');
     localStorage.setItem('smartorder_role', role);
+    console.log('Saved to localStorage:', localStorage.getItem('smartorder_role'));
 
     // Role-specific landing page
-    if (role === 'Staff Operasional') {
+    if (role === 'Kasir') {
       setActivePage('pos');
-    } else if (role === 'Staff Dapur') {
+    } else if (role === 'Koki') {
       setActivePage('kds');
+    } else if (role === 'Admin') {
+      setActivePage('dashboard');
     } else {
       setActivePage('dashboard');
     }
@@ -180,7 +296,7 @@ export default function App() {
   const handleLogout = () => {
     setIsAuthenticated(false);
     setUserRole(null);
-    // Hapus sesi saat logout
+    clearAuthToken();
     localStorage.removeItem('smartorder_auth');
     localStorage.removeItem('smartorder_role');
   };
@@ -188,15 +304,14 @@ export default function App() {
   const getPageTitle = (page: string) => {
     switch (page) {
       case 'dashboard': return 'Dashboard';
-      case 'orders': return 'Pesanan Masuk';
       case 'menu-catalog': return 'Katalog Menu';
       case 'manage-menu': return 'Kelola Menu';
+      case 'recipe': return 'Kelola Resep';
       case 'manage-tables': return 'Smart Tag / Meja';
       case 'stock': return 'Stok Bahan Baku';
       case 'history': return 'Histori Transaksi';
       case 'promo': return 'Kelola Promo';
       case 'reports': return 'Laporan Penjualan';
-      case 'staff': return 'Manajemen Staff';
       case 'users': return 'Kelola User';
       case 'points': return 'Kelola Poin & Rewards';
       case 'ratings': return 'Rating & Ulasan';
@@ -205,8 +320,20 @@ export default function App() {
     }
   };
 
+  if (window.location.pathname === '/ratings-input') {
+    return (
+      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <div className="flex h-screen bg-stone-50 overflow-hidden text-stone-900 font-sans">
+          <RatingInput />
+          <Toaster position="top-right" />
+        </div>
+      </ThemeProvider>
+    );
+  }
+
   return (
-    <div className="flex h-screen bg-stone-50 overflow-hidden text-stone-900 font-sans">
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <div className="flex h-screen bg-stone-50 overflow-hidden text-stone-900 font-sans">
       {!isAuthenticated ? (
         <Login onLogin={handleLogin} />
       ) : (
@@ -244,7 +371,9 @@ export default function App() {
                   setUsers={setUsers}
                   searchTerm={globalSearchTerm}
                   onUpdateStatus={handleUpdateOrderStatus}
+                  onVerifyPaymentProof={handleVerifyPaymentProof}
                   userRole={userRole}
+                  refreshMenu={refreshMenu}
                 />
               </div>
             </main>
@@ -252,7 +381,8 @@ export default function App() {
         </>
       )}
       <Toaster position="top-right" />
-    </div>
+      </div>
+    </ThemeProvider>
   );
 }
 
@@ -271,42 +401,46 @@ function MainContent({
   setUsers, 
   searchTerm, 
   onUpdateStatus,
-  userRole
+  onVerifyPaymentProof,
+  userRole,
+  refreshMenu
 }: any) {
   // Access Control Logic
-  const canAccess = (roles: string[]) => userRole && roles.includes(userRole);
+  const canAccess = (roles: string[]) => {
+  if (!userRole) return false;
+  if (userRole === 'Admin') return true;
+  return roles.includes(userRole);
+};
 
   switch (page) {
     case 'dashboard': 
-      return canAccess(['Admin']) ? <Dashboard menuItems={menuItems} orders={orders} stockItems={stockItems} /> : <Orders orders={orders} setOrders={setOrders} onUpdateStatus={onUpdateStatus} searchTerm={searchTerm} />;
+      return canAccess(['Admin', 'Kasir', 'Koki']) ? <Dashboard menuItems={menuItems} orders={orders} stockItems={stockItems} /> : <div className="text-center py-20 text-stone-500">Anda tidak memiliki akses ke halaman ini.</div>;
     case 'pos':
-      return canAccess(['Admin', 'Staff Operasional']) ? <POS menuItems={menuItems} setOrders={setOrders} stockItems={stockItems} setStockItems={setStockItems} /> : <div className="text-center py-20 text-stone-500">Akses Terminal POS hanya untuk Staff Operasional.</div>;
+      return canAccess(['Admin', 'Kasir']) ? <POS menuItems={menuItems} setMenuItems={setMenuItems} setOrders={setOrders} stockItems={stockItems} setStockItems={setStockItems} /> : <div className="text-center py-20 text-stone-500">Akses Terminal POS hanya untuk Kasir.</div>;
     case 'kds':
-      return canAccess(['Admin', 'Staff Dapur']) ? <KDS orders={orders} setOrders={setOrders} onUpdateStatus={onUpdateStatus} /> : <div className="text-center py-20 text-stone-500">Akses KDS hanya untuk Staff Dapur.</div>;
-    case 'orders': 
-      return canAccess(['Admin', 'Staff Operasional', 'Staff Dapur']) ? <Orders orders={orders} setOrders={setOrders} onUpdateStatus={onUpdateStatus} searchTerm={searchTerm} /> : <div className="text-center py-20 text-stone-500">Akses dibatasi.</div>;
+      return canAccess(['Admin', 'Koki']) ? <KDS orders={orders} setOrders={setOrders} onUpdateStatus={onUpdateStatus} /> : <div className="text-center py-20 text-stone-500">Akses KDS hanya untuk Koki.</div>;
     case 'menu-catalog': 
       return <MenuCatalog menuItems={menuItems} setMenuItems={setMenuItems} searchTerm={searchTerm} userRole={userRole} />;
     case 'manage-menu': 
       return canAccess(['Admin']) ? <ManageMenu menuItems={menuItems} setMenuItems={setMenuItems} stockItems={stockItems} searchTerm={searchTerm} /> : <MenuCatalog menuItems={menuItems} setMenuItems={setMenuItems} searchTerm={searchTerm} userRole={userRole} />;
+    case 'recipe':
+      return canAccess(['Admin']) ? <RecipeManagement menuItems={menuItems} setMenuItems={setMenuItems} stockItems={stockItems} searchTerm={searchTerm} refreshMenu={refreshMenu} /> : <div className="text-center py-20 text-stone-500">Anda tidak memiliki akses ke halaman ini.</div>;
     case 'manage-tables':
       return canAccess(['Admin']) ? <TableManagement /> : <div className="text-center py-20 text-stone-500">Anda tidak memiliki akses ke halaman ini.</div>;
-    case 'staff':
-      return canAccess(['Admin']) ? <StaffManagement /> : <div className="text-center py-20 text-stone-500">Anda tidak memiliki akses ke halaman ini.</div>;
     case 'stock': 
-      return canAccess(['Admin', 'Staff Operasional']) ? <StockManagement stockItems={stockItems} setStockItems={setStockItems} searchTerm={searchTerm} /> : <div className="text-center py-20 text-stone-500">Anda tidak memiliki akses ke halaman ini.</div>;
+      return canAccess(['Admin', 'Kasir', 'Koki']) ? <StockManagement stockItems={stockItems} setStockItems={setStockItems} searchTerm={searchTerm} /> : <div className="text-center py-20 text-stone-500">Anda tidak memiliki akses ke halaman ini.</div>;
     case 'history': 
-      return canAccess(['Admin']) ? <TransactionHistory orders={orders} searchTerm={searchTerm} /> : <div className="text-center py-20 text-stone-500">Anda tidak memiliki akses ke halaman ini.</div>;
+      return canAccess(['Admin', 'Kasir', 'Koki']) ? <TransactionHistory orders={orders} searchTerm={searchTerm} onVerifyPaymentProof={onVerifyPaymentProof} /> : <div className="text-center py-20 text-stone-500">Anda tidak memiliki akses ke halaman ini.</div>;
     case 'promo': 
       return canAccess(['Admin']) ? <PromoManagement promos={promos} setPromos={setPromos} searchTerm={searchTerm} /> : <div className="text-center py-20 text-stone-500">Anda tidak memiliki akses ke halaman ini.</div>;
     case 'reports': 
-      return canAccess(['Admin', 'Staff Operasional']) ? <SalesReport orders={orders} /> : <div className="text-center py-20 text-stone-500">Anda tidak memiliki akses ke halaman ini.</div>;
+      return canAccess(['Admin', 'Kasir', 'Koki']) ? <SalesReport orders={orders} /> : <div className="text-center py-20 text-stone-500">Anda tidak memiliki akses ke halaman ini.</div>;
     case 'users': 
       return canAccess(['Admin']) ? <UserManagement users={users} setUsers={setUsers} searchTerm={searchTerm} /> : <div className="text-center py-20 text-stone-500">Anda tidak memiliki akses ke halaman ini.</div>;
     case 'points':
       return canAccess(['Admin']) ? <PointsManagement /> : <div className="text-center py-20 text-stone-500">Anda tidak memiliki akses ke halaman ini.</div>;
     case 'ratings':
-      return canAccess(['Admin']) ? <RatingManagement /> : <div className="text-center py-20 text-stone-500">Anda tidak memiliki akses ke halaman ini.</div>;
+      return canAccess(['Admin', 'Kasir', 'Koki']) ? <RatingManagement /> : <div className="text-center py-20 text-stone-500">Anda tidak memiliki akses ke halaman ini.</div>;
     case 'settings': 
       return canAccess(['Admin']) ? <Settings /> : <div className="text-center py-20 text-stone-500">Anda tidak memiliki akses ke halaman ini.</div>;
     default: 

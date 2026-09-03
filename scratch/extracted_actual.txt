@@ -1,0 +1,577 @@
+
+LAPORAN PENGUJIAN PERANGKAT LUNAK“Ngolab SmartOrder F&B”
+Disusun untuk Memenuhi TugasMatakuliah Pengujian Perangkat Lunak (GCK2KAB2)Semester Genap Tahun Ajaran 2025-2026
+Oleh:Tim Penguji Perangkat LunakVe Mas Sefta Esa Dwisetiawan (<<nim 1>>)<<nama 2>> (<<nim 2>>)<<nama 3>> (<<nim 3>>)
+Program Studi D3 Sistem InformasiFakultas Ilmu TerapanUniversitas Telkom
+
+DAFTAR ISI
+DAFTAR ISI .......................................................................................................... iDAFTAR GAMBAR .................................................................................................. iiDAFTAR TABEL ..................................................................................................... iii1  Perencanaan Pengujian ...................................................................................... 1   1.1  Instalasi Sistem ....................................................................................... 1        1.1.1  System Requirements ....................................................................... 1        1.1.2  System Deployment ........................................................................... 1   1.2  Instalasi Tools Pengujian ................................................................................ 2   1.3  Cakupan Pengujian .................................................................................... 2        1.3.1  Fungsionalitas Sistem ........................................................................... 2        1.3.2  Teknik Pengujian ............................................................................... 3        1.3.3  Jadwal dan Pengawakan ........................................................................ 32  Perancangan Pengujian ........................................................................................ 43  Hasil Pengujian .................................................................................................. 54  Kesimpulan ........................................................................................................ 7
+
+DAFTAR GAMBAR
+Gambar 1.1 Langkah-Langkah Instalasi ................................................................. 2
+
+DAFTAR TABEL
+Tabel 1.1 Kebutuhan Perangkat Keras ................................................................... 1Tabel 1.2 Kebutuhan Perangkat Lunak ................................................................... 1Tabel 1.3 Pembagian Tugas Pengujian .................................................................... 3Tabel 2.1 Rancangan Pengujian Fungsionalitas Login ................................................... 4Tabel 2.2 Rancangan Pengujian Kelola Menu ........................................................... 4Tabel 2.3 Rancangan Pengujian Kelola Stok Bahan Baku ........................................... 4Tabel 2.4 Rancangan Pengujian POS & Pemesanan ..................................................... 4Tabel 2.5 Rancangan Pengujian Kitchen Display System (KDS) .................................. 5Tabel 2.6 Rancangan Pengujian Rating & Ulasan ....................................................... 5Tabel 2.7 Rancangan Pengujian Kelola Promo ....................................................... 5Tabel 2.8 Rancangan Pengujian Kelola Poin & Rewards ....................................................... 5Tabel 2.9 Rancangan Pengujian Smart Tag / Meja ....................................................... 5Tabel 2.10 Rancangan Pengujian Laporan Penjualan ....................................................... 5Tabel 2.11 Rancangan Pengujian Manajemen Staff ....................................................... 5Tabel 2.12 Rancangan Pengujian Kelola Pengguna ....................................................... 6Tabel 2.13 Rancangan Pengujian Katalog Menu & Integrasi ................................................... 6Tabel 2.14 Rancangan Pengujian Histori Transaksi ................................................... 6Tabel 2.15 Rancangan Pengujian Pengaturan Umum Toko ................................................... 6Tabel 2.16 Rancangan Pengujian Dashboard Utama Admin ................................................... 6Tabel 2.17 Rancangan Pengujian Fungsionalitas Pesanan Masuk ................................................... 6Tabel 3.1 Hasil Pengujian Otomatis ........................................................... 6
+
+1  Perencanaan Pengujian
+Bab 1 laporan pengujian perangkat lunak ini menjelaskan tahapan perencanaan pengujian untuk aplikasi Ngolab SmartOrder F&B. Pada bab ini, tim penguji mempersiapkan Software Under Test (SUT) berupa sistem POS Kasir dan Kitchen Display System (KDS), serta menetapkan kakas bantu pengujian otomatis berbasis Selenium WebDriver. Secara lengkap, tim penguji melaporkan kebutuhan spesifikasi sistem, langkah-langkah instalasi, cakupan fungsionalitas aplikasi yang diuji, teknik pengujian yang diterapkan, serta jadwal pelaksanaan pengujian.
+1.1  Instalasi Sistem
+Pada proses instalasi sistem Ngolab SmartOrder F&B, tim penguji mendefinisikan persyaratan minimum perangkat keras dan lunak agar backend server.js dan frontend React dapat berjalan stabil. Berikut adalah kebutuhan minimum serta tahapan yang diperlukan untuk menggelar dan menjalankan sistem di lingkungan pengujian.
+1.1.1  System Requirements
+Tabel 1.1 Kebutuhan Perangkat Keras
+Perangkat Keras
+Spesifikasi Minimal
+Processor
+Intel Core i3 / AMD Ryzen 3 (atau lebih tinggi)
+RAM
+4 GB (8 GB direkomendasikan)
+Storage
+SSD/HDD dengan ruang kosong minimal 5 GB
+
+Tabel 1.2 Kebutuhan Perangkat Lunak
+Perangkat Lunak
+Spesifikasi Minimal
+Bahasa Pemrograman
+Node.js v18.0+, TypeScript, JavaScript
+DBMS
+MySQL (melalui XAMPP v3.3.0 atau MySQL Server 8.0)
+Framework
+React v19, Express v4, Vite v6, Tailwind CSS v4
+Web Browser
+Google Chrome (versi terbaru) atau Mozilla Firefox
+
+1.1.2  System Deployment
+Tim penguji perangkat lunak harus dapat menjelaskan tahapan-tahapan yang dilakukan untuk melakukan instalasi sistem di lingkungan pengujian. Langkah-langkah detail adalah sebagai berikut:1. Ekstrak atau posisikan folder proyek NGOLAB di direktori lokal Anda.2. Konfigurasi MySQL: Buka control panel XAMPP, jalankan MySQL, buka phpMyAdmin, buat database 'smartorder_db', dan import file smartorder_db_setup.sql.3. Instalasi modul NodeJS: Jalankan perintah 'npm install' di root folder proyek menggunakan terminal.4. Jalankan backend: Jalankan perintah 'node server.js' di terminal. Backend akan listen di port 5000.5. Jalankan frontend: Jalankan perintah 'npm run dev' di terminal terpisah. Frontend berjalan di port 3000.6. Akses aplikasi: Buka browser dan arahkan ke alamat http://localhost:3000.
+Gambar 1.1 Langkah-Langkah Instalasi
+1.2  Instalasi Tools Pengujian
+Eksekusi test case dilakukan dengan menggunakan bantuan perangkat lunak automation testing Selenium WebDriver. Tahapan instalasi automation testing software adalah:1. Instalasi Interpreter Python: Pastikan Python 3.10+ terpasang di sistem operasi pengujian.2. Instalasi Selenium WebDriver: Instal library selenium menggunakan pip dengan perintah 'pip install selenium'.3. Instalasi Webdriver Manager (opsional): Gunakan perintah 'pip install webdriver-manager' untuk mengunduh driver browser (ChromeDriver) secara otomatis.
+1.3  Cakupan Pengujian
+1.3.1  Fungsionalitas Sistem
+Sesuai dengan panduan template pengujian, setiap fungsionalitas sistem didefinisikan secara rinci meliputi kemampuan utama, skema data input dan output, serta kriteria keberhasilan fungsionalitas tersebut:
+1. Fungsionalitas Login & Autentikasi (Login Page)- Kemampuan Utama: Memeriksa kredensial pengguna secara dinamis dari tabel users (dapat dicocokkan berdasarkan email, NIM, atau nomor telepon) dan mengarahkan navigasi halaman utama berdasarkan role (Admin ke Dashboard, Staff Operasional ke POS, Staff Dapur ke KDS).- Skema Data Input: email / emailNim (string), dan password (string).- Skema Data Output: JSON response sukses berisi data user (id, name, role, points) dan status HTTP 200 OK.- Kriteria Keberhasilan: Akun dengan status "Active" berhasil masuk ke halaman utama sesuai role dan menyimpan state di browser localStorage (smartorder_auth='true'); sebaliknya, credentials salah menghasilkan status 401 dan toast error.
+2. Fungsionalitas POS (Point of Sale) & Pemesanan Kasir (POS Page)- Kemampuan Utama: Kasir membuat order pesanan pelanggan (Dine-In, Takeaway, Delivery), menghitung total harga (termasuk pajak 10%), menerapkan potongan kode kupon promo, mengkalkulasi kembalian tunai, serta memperbarui riwayat transaksi.- Skema Data Input: ID pesanan id (string), meja/label destination_label (string), nama customer_name (string), item pesanan items (array berisi menu_id, quantity, note), pembayaran payment_method (string), uang diterima amount_paid (integer), dan kode kupon promoCode (string).- Skema Data Output: Record baru di tabel orders dan order_items serta cetak struk pembayaran.- Kriteria Keberhasilan: Pesanan berhasil dibuat dengan status awal "Menunggu", stok menu item (menu_items) berkurang, dan stok bahan baku di tabel stock_items berkurang otomatis berdasarkan komposisi resep di tabel menu_recipes.
+3. Fungsionalitas Kitchen Display System (KDS Page)- Kemampuan Utama: Menampilkan antrean pesanan aktif di dapur secara real-time melalui mekanisme polling berkala 3 detik, memainkan notifikasi chime saat pesanan masuk, dan memungkinkan koki mengubah status pesanan.- Skema Data Input: Klik tombol aksi koki untuk mengubah status pesanan (PUT /api/orders/:id/status).- Skema Data Output: Perubahan kolom status pada tabel orders dari Menunggu -> Diproses (Sedang Disiapkan) -> Selesai (Siap).- Kriteria Keberhasilan: Antrean pesanan terupdate secara real-time di layar KDS dapur, timer menghitung waktu tunggu pesanan secara dinamis, dan memainkan notifikasi call bell chime saat pesanan siap disajikan.
+4. Fungsionalitas Kelola Menu (ManageMenu Page)- Kemampuan Utama: Admin mengelola menu makanan/minuman (menambah menu, mengubah harga, mengupload gambar ke folder /uploads, menetapkan resep bahan baku dari tabel stock_items, menghapus menu, dan toggle display).- Skema Data Input: name (string), category (string), price (integer), description (text), stock (integer), ingredients (JSON array resep bahan baku), dan image (file upload).- Skema Data Output: Record baru/terupdate di tabel menu_items dan menu_recipes.- Kriteria Keberhasilan: Menu berhasil tersimpan lengkap dengan data resep bahan baku, berkas gambar terupload ke direktori /uploads, dan relasi resep terhapus otomatis secara CASCADE saat menu dihapus.
+5. Fungsionalitas Kelola Stok Bahan Baku (StockManagement Page)- Kemampuan Utama: Admin/Kasir mengelola stok bahan baku di dapur, menyesuaikan jumlah stok manual (plus/minus), serta memonitor status indikator stok.- Skema Data Input: name (string), qty (decimal), unit (string), dan min_stock (decimal).- Skema Data Output: Perbaruan data kuantitas bahan baku pada tabel stock_items.- Kriteria Keberhasilan: Nilai kuantitas stok terupdate akurat, dan status stok otomatis berubah menjadi 'Aman', 'Menipis', 'Kritis', atau 'Habis' berdasarkan perbandingan nilai kuantitas dengan minimum stok.
+6. Fungsionalitas Rating & Ulasan (RatingManagement Page)- Kemampuan Utama: Pelanggan mengirimkan ulasan (diteruskan ke server rekan jika memesan menu eksternal rekan), dan admin menyetujui, menyembunyikan, atau membalas ulasan.- Skema Data Input: customerName (string), rating (integer 1-5), comment (text), menuId (integer), dan reply (text).- Skema Data Output: Record ulasan tersimpan di tabel ratings dengan status awal "Pending", dan balasan tersimpan di kolom reply.- Kriteria Keberhasilan: Ulasan lokal tersimpan di database lokal; ulasan menu eksternal (dengan prefix ID ext-) berhasil diteruskan ke API server rekan (/api/ratings), dan ulasan muncul di halaman katalog pelanggan setelah di-approve admin.
+7. Fungsionalitas Kelola Promo (PromoManagement Page)- Kemampuan Utama: Admin membuat kode promo diskon nominal/persentase, membatasi kuota penggunaan, dan menetapkan minimal belanja.- Skema Data Input: title (string), code (string), discount (decimal), type (Persentase/Nominal), max_usage (integer), dan min_purchase (integer).- Skema Data Output: Record data promo baru pada tabel promos.- Kriteria Keberhasilan: Kode promo terdaftar di tabel promos, memotong subtotal belanja keranjang POS secara otomatis, dan usage_count bertambah 1 pasca transaksi diselesaikan.
+8. Fungsionalitas Kelola Poin & Rewards (PointsManagement Page)- Kemampuan Utama: Mengonfigurasi parameter perolehan poin per kelipatan transaksi belanja, mencatat history poin user, dan mengelola katalog rewards penukaran poin.- Skema Data Input: earning_rate (integer), min_purchase (integer), data reward (nama, poin, deskripsi).- Skema Data Output: Log perolehan poin pada tabel point_history dan pemutakhiran kolom points di tabel users.- Kriteria Keberhasilan: Poin user bertambah otomatis sesuai kelipatan total transaksi jika total di atas min_purchase saat kasir memproses pesanan, serta histori perolehan tercatat dengan benar.
+9. Fungsionalitas Smart Tag / Meja (TableManagement Page)- Kemampuan Utama: Admin mengelola ID meja, kapasitas meja, zona peletakan (Indoor/Outdoor), status ketersediaan, serta tautan scan QR meja.- Skema Data Input: id meja (string), tag_type (Meja/Takeaway/Delivery), label_number (integer), capacity (integer), zone (string), dan status (Tersedia/Terisi/Reservasi).- Skema Data Output: Record data meja baru di tabel smart_tags.- Kriteria Keberhasilan: Kode meja terdaftar secara unik, tautan smart_link terisi otomatis, dan status ketersediaan meja berubah sesuai alur transaksi pelanggan.
+10. Fungsionalitas Laporan Penjualan (SalesReport Page)- Kemampuan Utama: Menampilkan grafik total pendapatan harian/bulanan, grafik produk terlaris, filter periode transaksi, dan fitur cetak laporan format PDF.- Skema Data Input: Filter tanggal awal dan akhir (date).- Skema Data Output: Grafik visualisasi data transaksi dan file laporan berformat PDF.- Kriteria Keberhasilan: Grafik menghitung total pendapatan secara akurat berdasarkan rentang tanggal, dan file PDF terunduh dengan tata letak yang rapi.
+11. Fungsionalitas Manajemen Staff (StaffManagement Page)- Kemampuan Utama: Admin mengelola data profil karyawan dan mengalokasikan shift jadwal jaga harian.- Skema Data Input: Nama staff (string), email (string), telepon (string), shift (Pagi/Sore/Full), penugasan role (Kasir/Koki).- Skema Data Output: Record baru di tabel staff dan tabel staff_schedules.- Kriteria Keberhasilan: Data karyawan tersimpan unik dan jadwal shift tampil di kalender operasional.
+12. Fungsionalitas Kelola Pengguna (UserManagement Page)- Kemampuan Utama: Admin mengelola data pengguna (akun user, customer, role Admin/Staff Operasional/Staff Dapur) termasuk menambahkan akun pengguna baru dengan status default "Active" dan menghapus akun pengguna dari database.- Skema Data Input: Nama lengkap name (string), email/NIM emailNim (string), kata sandi password (string), dan peran role (string).- Skema Data Output: Record baru di tabel users (untuk registrasi) atau penghapusan record di database users.- Kriteria Keberhasilan: Data pengguna berhasil terdaftar secara dinamis, filter peran & status berfungsi akurat di UI, dan aksi hapus berhasil menghapus data di database serta memperbarui antrean di UI.
+13. Fungsionalitas Katalog Menu (MenuCatalog Page) & Integrasi Menu Eksternal- Kemampuan Utama: Pengguna/Pelanggan menjelajahi daftar menu makanan/minuman yang ditawarkan, di mana sistem secara dinamis menarik dan menggabungkan data menu lokal dari database dengan menu eksternal dari server/laptop rekan (localhost:3001).- Skema Data Input: Permintaan GET ke endpoint /api/menu.- Skema Data Output: JSON response gabungan menu lokal dan menu eksternal (dengan prefix ID ext-).- Kriteria Keberhasilan: Halaman katalog menu menampilkan daftar menu lokal dan eksternal secara mulus, pencarian menu berfungsi responsif di katalog, dan status ketersediaan ter-update secara akurat.
+14. Fungsionalitas Histori Transaksi (TransactionHistory Page)- Kemampuan Utama: Admin/Kasir melihat seluruh riwayat transaksi pesanan, menyaring catatan transaksi berdasarkan tanggal atau status (Success/Pending), melakukan ekspor data ke Excel, dan mencetak struk transaksi format kasir thermal.- Skema Data Input: Filter tanggal (date), filter status (Semua/Success/Pending), pencarian nama/ID pesanan, klik cetak struk.- Skema Data Output: File ekspor Excel (.xlsx) dan jendela preview cetak struk kasir (HTML).- Kriteria Keberhasilan: Daftar transaksi berhasil difilter berdasarkan tanggal/status/nama secara akurat, detail pesanan dapat ditampilkan lengkap di modal pop-up, ekspor Excel berhasil dipicu, dan jendela cetak struk thermal termuat dengan format yang benar.
+15. Fungsionalitas Pengaturan Umum Toko (Settings Page)- Kemampuan Utama: Admin mengelola detail profil outlet (nama outlet, telepon, alamat), mengonfigurasi jam operasional buka/tutup toko, serta men-toggle status toko online/offline.- Skema Data Input: Nama outlet (string), no telepon (string), alamat (text), jam buka/tutup (time), status toko (boolean).- Skema Data Output: Toast notifikasi sukses dan pembaruan pengaturan sistem di memori/database.- Kriteria Keberhasilan: Konfigurasi berhasil disimpan, perubahan jam operasional dan profil ter-update di UI, dan toggle status online/offline mengubah ketersediaan sistem order bagi pelanggan.
+16. Fungsionalitas Dashboard Utama Admin (Dashboard Page)- Kemampuan Utama: Menyajikan visualisasi data ringkasan performa toko untuk Admin, meliputi total transaksi, pendapatan, grafik pesanan, menu terlaris, dan notifikasi stok kritis secara real-time.- Skema Data Input: Pengguna dengan role Admin membuka halaman Dashboard.- Skema Data Output: Grafik visualisasi penjualan harian/bulanan, kartu metrik ringkasan (pendapatan, total pesanan, total menu), dan daftar peringatan stok kritis.- Kriteria Keberhasilan: Metrik transaksi dihitung akurat berdasarkan data tabel orders, data stok kritis sinkron dengan tabel stock_items, dan grafik termuat secara dinamis.
+17. Fungsionalitas Pesanan Masuk (Orders Page)- Kemampuan Utama: Staff Operasional/Admin memantau seluruh antrean pesanan aktif, memfilternya berdasarkan status (Menunggu, Diproses, Siap Saji), melakukan pencarian nomor meja atau ID pesanan, serta mencetak struk pesanan (order slip).- Skema Data Input: ID pesanan (string), status filter (string), pencarian (string).- Skema Data Output: Rincian pesanan yang difilter dan pratinjau struk pesanan yang dicetak.- Kriteria Keberhasilan: Daftar pesanan terfilter dengan tepat di setiap tab, pencarian memfilter baris secara instan, dan pratinjau struk pesanan termuat dengan benar ketika tombol cetak diklik.
+1.3.2  Teknik Pengujian
+Teknik pengujian menggunakan pendekatan Black Box Testing dengan dua metode:1. Equivalence Partitioning (EP): Untuk membagi input form valid dan invalid (misalnya, input text kosong vs terisi).2. Boundary Value Analysis (BVA): Untuk menguji nilai batas (misalnya, input penyesuaian stok yang bernilai negatif ekstrim, atau jumlah bayar di bawah subtotal).
+1.3.3  Jadwal dan Pengawakan
+Pembuatan rancangan (test case) dan pelaksanaan pengujian dijadwalkan dengan melibatkan seluruh anggota tim penguji. Jadwal pelaksanaan pengujian sekaligus pembagian tanggung jawab pengujian fitur untuk masing-masing penguji adalah sebagai berikut:
+Tabel 1.3 Pembagian Tugas Pengujian
+Nama Penguji
+NIM
+Modul / Fungsionalitas yang Diuji
+Ve Mas Sefta Esa Dwisetiawan
+<<nim 1>>
+Fungsionalitas Login, POS & Pemesanan, KDS (Kitchen Display System), Pesanan Masuk, Histori Transaksi, Pengaturan Umum Toko
+<<nama 2>>
+<<nim 2>>
+Fungsionalitas Kelola Menu, Kelola Stok Bahan Baku, Smart Tag / Meja, Katalog Menu & Integrasi Menu Eksternal
+<<nama 3>>
+<<nim 3>>
+Fungsionalitas Rating & Ulasan, Kelola Promo, Kelola Poin & Rewards, Kelola Pengguna, Dashboard Utama Admin
+
+2  Perancangan Pengujian
+Bab 2 berisi rancangan test case untuk setiap fungsionalitas yang tersedia pada sistem Ngolab SmartOrder. Test case dirancang berdasarkan teknik Equivalence Partitioning dan Boundary Value Analysis.
+Tabel 2.1 Rancangan Pengujian Fungsionalitas Login
+Fungsionalitas
+ID TC
+Deskripsi
+Pra-kondisi
+Langkah
+Data
+Hasil yang Diharapkan
+Login
+TC1.1
+Login dengan data kosong
+Halaman login terbuka
+1. Kosongkan email & sandi2. Klik tombol Masuk Sekarang
+email = ""password = ""
+Form HTML memicu validasi browser (input wajib diisi)
+Login
+TC1.2
+Login dengan password salah
+Halaman login terbuka
+1. Isi email terdaftar2. Isi password salah3. Klik tombol Masuk Sekarang
+email = admin@smartorder.compassword = salah123
+Login gagal, toast error tampil
+Login
+TC1.3
+Login sukses sebagai Admin
+Halaman login terbuka
+1. Isi email admin valid2. Isi password benar3. Klik tombol Masuk Sekarang
+email = admin@smartorder.compassword = admin123
+Login berhasil, diarahkan ke Dashboard Admin
+Tabel 2.2 Rancangan Pengujian Kelola Menu
+Fungsionalitas
+ID TC
+Deskripsi
+Pra-kondisi
+Langkah
+Data
+Hasil yang Diharapkan
+Kelola Menu
+TC2.1
+Tambah Menu Baru Valid
+Login sebagai Admin
+1. Klik tombol Tambah Menu2. Isi data menu lengkap3. Klik Simpan Menu
+Nama: Kopi CaramelKategori: MinumanHarga: 15000Stok: 20Resep: Kopi Bubuk 0.1kg
+Menu baru berhasil tersimpan di DB menu_items & menu_recipes
+Kelola Menu
+TC2.2
+Edit Harga Menu
+Menu terdaftar ada
+1. Klik dropdown aksi pada menu Kopi Caramel2. Klik menu Edit3. Ubah harga4. Klik Simpan Perubahan
+Harga baru: 18000
+Harga menu berhasil diperbarui di database
+Kelola Menu
+TC2.3
+Hapus Menu
+Menu terdaftar ada
+1. Klik dropdown aksi pada menu Kopi Caramel2. Klik menu Hapus3. Setujui dialog konfirmasi browser
+Menu ID = 1
+Menu terhapus dari DB menu_items, resep terhapus CASCADE
+Tabel 2.3 Rancangan Pengujian Kelola Stok Bahan Baku
+Fungsionalitas
+ID TC
+Deskripsi
+Pra-kondisi
+Langkah
+Data
+Hasil yang Diharapkan
+Kelola Stok
+TC3.1
+Tambah Bahan Baku Baru
+Halaman Stok dibuka
+1. Klik Tambah Stok2. Isi data3. Klik Simpan
+Nama: Cokelat BubukQty: 10, Unit: kgMin Stock: 2
+Bahan baku disimpan di DB stock_items dengan status 'Aman'
+Kelola Stok
+TC3.2
+Penyesuaian Stok (Pengurangan)
+Bahan baku ada
+1. Klik Sesuaikan pada Kopi Bubuk2. Isi amount negatif3. Simpan
+Amount: -9 (stok sisa 1)
+Stok terpotong di DB, status otomatis menjadi 'Kritis'
+Tabel 2.4 Rancangan Pengujian POS & Pemesanan
+Fungsionalitas
+ID TC
+Deskripsi
+Pra-kondisi
+Langkah
+Data
+Hasil yang Diharapkan
+POS & Order
+TC4.1
+Pemesanan Menu & Potong Stok
+Halaman POS Terminal dibuka
+1. Klik menu Nasi Goreng untuk menambah ke keranjang2. Klik tombol Tunai3. Isi jumlah uang diterima4. Klik Selesaikan Pembayaran
+Nasi Goreng qty 2Uang Diterima: 36000
+Pesanan tersimpan di DB, stok Nasi Goreng & bahan resep berkurang
+POS & Order
+TC4.2
+Input Kupon Promo Valid
+Item ada di keranjang
+1. Input kode promo2. Klik Terapkan
+Kupon: RAMADHAN20
+Total belanja dipotong diskon 20% di POS, kuota promo berkurang
+Tabel 2.5 Rancangan Pengujian Kitchen Display System (KDS)
+Fungsionalitas
+ID TC
+Deskripsi
+Pra-kondisi
+Langkah
+Data
+Hasil yang Diharapkan
+KDS
+TC5.1
+Update Status (Mulai Masak)
+Pesanan masuk 'Menunggu'
+1. Klik tombol MULAI MASAK
+Order ID: ORD-2026-001
+Status pesanan di DB orders menjadi 'Diproses' (Sedang Disiapkan)
+KDS
+TC5.2
+Update Status (Selesai)
+Pesanan status 'Diproses'
+1. Klik tombol SELESAI
+Order ID: ORD-2026-001
+Status pesanan menjadi 'Selesai', bel chime berbunyi
+Tabel 2.6 Rancangan Pengujian Rating & Ulasan
+Fungsionalitas
+ID TC
+Deskripsi
+Pra-kondisi
+Langkah
+Data
+Hasil yang Diharapkan
+Rating
+TC6.1
+Kirim Ulasan Menu Lokal
+Halaman ulasan dibuka
+1. Isi nama, rating, ulasan2. Klik Kirim Ulasan
+Andi, Bintang 5, 'Enak'
+Tersimpan di DB ratings dengan status default 'Pending'
+Rating
+TC6.2
+Approve Ulasan oleh Admin
+Login Admin, ulasan ada
+1. Klik Tampilkan pada ulasan
+Ulasan ID = 1
+Ulasan disetujui, status berubah menjadi 'Ditampilkan'
+Tabel 2.7 Rancangan Pengujian Kelola Promo
+Fungsionalitas
+ID TC
+Deskripsi
+Pra-kondisi
+Langkah
+Data
+Hasil yang Diharapkan
+Kelola Promo
+TC7.1
+Tambah Promo Baru Valid
+Login sebagai Admin
+1. Klik Tambah Promo2. Isi data lengkap3. Klik Simpan
+Nama: Diskon PelajarKode: PELAJAR5KDiskon: 5000Tipe: FixedMin Belanja: 20000
+Promo baru berhasil disimpan di DB promos dan siap digunakan
+Tabel 2.8 Rancangan Pengujian Kelola Poin & Rewards
+Fungsionalitas
+ID TC
+Deskripsi
+Pra-kondisi
+Langkah
+Data
+Hasil yang Diharapkan
+Kelola Poin
+TC8.1
+Tambah Hadiah Baru ke Katalog
+Login sebagai Admin
+1. Buka halaman Poin & Rewards2. Klik Tambah Hadiah3. Isi nama, poin, deskripsi4. Klik Simpan
+Nama: Gantungan KunciPoin: 50Deskripsi: Gantungan kunci lucu
+Hadiah baru disimpan di DB point_rewards dengan status 'Tersedia'
+Tabel 2.9 Rancangan Pengujian Smart Tag / Meja
+Fungsionalitas
+ID TC
+Deskripsi
+Pra-kondisi
+Langkah
+Data
+Hasil yang Diharapkan
+Smart Tag
+TC9.1
+Tambah Smart Tag / Meja Baru
+Login sebagai Admin
+1. Buka halaman Smart Tag / Meja2. Klik Tambah Meja3. Isi data meja lengkap4. Klik Simpan
+ID: TABLE-01Tipe: MejaNo Label: 1Kapasitas: 4Zona: IndoorStatus: Tersedia
+Kode meja disimpan di DB smart_tags dan tautan terisi otomatis
+Smart Tag
+TC9.2
+Hapus Smart Tag / Meja
+Login sebagai Admin, TABLE-01 terdaftar
+1. Buka halaman Smart Tag / Meja2. Klik tombol Hapus pada TABLE-013. Konfirmasi hapus
+ID: TABLE-01
+Data meja TABLE-01 terhapus dari DB smart_tags
+Tabel 2.10 Rancangan Pengujian Laporan Penjualan
+Fungsionalitas
+ID TC
+Deskripsi
+Pra-kondisi
+Langkah
+Data
+Hasil yang Diharapkan
+Laporan
+TC10.1
+Cetak Laporan Format PDF
+Login sebagai Admin/Kasir di Halaman Laporan Penjualan
+1. Pilih rentang tanggal laporan2. Klik tombol Cetak PDF
+Tanggal Awal: 2026-06-01Tanggal Akhir: 2026-06-16
+File PDF laporan penjualan berhasil di-generate dan terunduh
+Tabel 2.11 Rancangan Pengujian Manajemen Staff
+Fungsionalitas
+ID TC
+Deskripsi
+Pra-kondisi
+Langkah
+Data
+Hasil yang Diharapkan
+Manajemen Staff
+TC11.1
+Tambah Jadwal Jaga Baru
+Login sebagai Admin, staff terdaftar
+1. Buka Halaman Jadwal Staff2. Klik Tambah Jadwal3. Isi shift staff4. Klik Simpan
+Staff ID: 1Hari: SeninShift: PagiRole: Kasir
+Jadwal shift staff tersimpan di DB staff_schedules dan tampil di kalender
+Tabel 2.12 Rancangan Pengujian Kelola Pengguna
+Fungsionalitas
+ID TC
+Deskripsi
+Pra-kondisi
+Langkah
+Data
+Hasil yang Diharapkan
+Kelola User
+TC12.1
+Tambah Pengguna Baru Valid
+Login sebagai Admin
+1. Klik Tambah Pengguna2. Isi Nama, Email, dan pilih peran3. Klik Simpan Pengguna
+Nama: Budi KasirEmail: budi@ngolab.comPeran: Staff Operasional
+Pengguna baru berhasil terdaftar di DB users dengan status default 'Active'
+Kelola User
+TC12.2
+Hapus Pengguna
+Login sebagai Admin, Budi Kasir terdaftar
+1. Buka halaman Kelola User2. Klik aksi Hapus Pengguna pada Budi Kasir3. Konfirmasi penghapusan
+User ID = (ID Budi Kasir)
+Akun Budi Kasir terhapus dari DB users dan hilang dari daftar tabel UI
+Tabel 2.13 Rancangan Pengujian Katalog Menu & Integrasi
+Fungsionalitas
+ID TC
+Deskripsi
+Pra-kondisi
+Langkah
+Data
+Hasil yang Diharapkan
+Katalog Menu
+TC13.1
+Sinkronisasi Menu Lokal dan Eksternal
+Halaman Katalog Menu dibuka, server rekan aktif
+1. Buka rute /menu-catalog2. Tunggu proses fetching selesai
+GET /api/menu
+Menampilkan menu lokal dan menu eksternal dengan prefix ID ext- secara terintegrasi pada katalog
+Tabel 2.14 Rancangan Pengujian Histori Transaksi
+Fungsionalitas
+ID TC
+Deskripsi
+Pra-kondisi
+Langkah
+Data
+Hasil yang Diharapkan
+Histori
+TC14.1
+Filter dan Detail Transaksi
+Halaman Histori Transaksi dibuka
+1. Pilih filter status 'Success'2. Klik tombol detil (ikon mata) pada salah satu transaksi
+Status = 'Success'Order ID = 'ORD-2026-001'
+Hanya transaksi berstatus 'Success' yang muncul, and modal detail menampilkan rincian item pesanan dengan benar
+Histori
+TC14.2
+Cetak Struk Pembayaran
+Halaman Histori Transaksi dibuka
+1. Klik tombol Cetak Struk (ikon printer) pada transaksi
+Order ID = 'ORD-2026-001'
+Membuka jendela pop-up print browser baru berisi format struk thermal kasir yang siap dicetak
+Tabel 2.15 Rancangan Pengujian Pengaturan Umum Toko
+Fungsionalitas
+ID TC
+Deskripsi
+Pra-kondisi
+Langkah
+Data
+Hasil yang Diharapkan
+Settings
+TC15.1
+Perbarui Pengaturan Jam Operasional
+Halaman Pengaturan Umum dibuka
+1. Ubah jam buka dan tutup senin-jumat2. Klik Simpan Perubahan
+Jam Buka = '08:00'Jam Tutup = '22:00'
+Pengaturan berhasil disimpan dan muncul toast sukses 'Pengaturan berhasil disimpan!'
+Tabel 2.16 Rancangan Pengujian Dashboard Utama Admin
+Fungsionalitas
+ID TC
+Deskripsi
+Pra-kondisi
+Langkah
+Data
+Hasil yang Diharapkan
+Dashboard
+TC16.1
+Memuat Data Ringkasan Statistik Dashboard
+Login sebagai Admin
+1. Buka halaman Dashboard Utama
+-
+Halaman memuat ringkasan total pendapatan, total pesanan, grafik penjualan, dan alert bahan baku yang kritis secara real-time
+Tabel 2.17 Rancangan Pengujian Fungsionalitas Pesanan Masuk
+Fungsionalitas
+ID TC
+Deskripsi
+Pra-kondisi
+Langkah
+Data
+Hasil yang Diharapkan
+Pesanan Masuk
+TC17.1
+Filter Status Pesanan dan Cetak Struk
+Halaman Pesanan Masuk dibuka
+1. Klik tab filter 'Menunggu'2. Klik tombol Printer pada salah satu pesanan
+Tab = 'Menunggu'Order ID = 'ORD-2026-001'
+Hanya pesanan berstatus 'Menunggu' yang ditampilkan, dan pratinjau cetak struk pesanan terbuka di tab baru browser
+
+3  Hasil Pengujian
+Rancangan pengujian yang telah dirinci pada bab 2 dieksekusi menggunakan tools pengujian Selenium WebDriver. Di bawah ini disajikan hasil eksekusi langkah pengujian, data pengujian, hasil aktual, dan kesimpulan (Pass/Fail).
+Tabel 3.1 Hasil Pengujian Otomatis
+Fungsionalitas
+ID Test Case
+Command
+Hasil Aktual
+Kesimpulan
+Login
+TC1.1
+self.driver.get("http://localhost:3000/")self.driver.set_window_size(1114, 674)self.driver.find_element(By.ID, "email").clear()self.driver.find_element(By.ID, "password").clear()self.driver.find_element(By.XPATH, "//button[@type='submit']").click()
+Form HTML memvalidasi input wajib diisi sebelum submit (HTML5 validation).
+pass
+Login
+TC1.2
+self.driver.get("http://localhost:3000/")self.driver.set_window_size(1114, 674)self.driver.find_element(By.ID, "email").send_keys("admin@smartorder.com")self.driver.find_element(By.ID, "password").send_keys("salah123")self.driver.find_element(By.XPATH, "//button[@type='submit']").click()
+Sistem memproses login ke backend dan menampilkan toast error bertuliskan "Email atau password salah".
+pass
+Login
+TC1.3
+self.driver.get("http://localhost:3000/")self.driver.set_window_size(1114, 674)self.driver.find_element(By.ID, "email").send_keys("admin@smartorder.com")self.driver.find_element(By.ID, "password").send_keys("admin123")self.driver.find_element(By.XPATH, "//button[@type='submit']").click()
+Login berhasil, toast sukses "Selamat datang, Admin!" muncul, browser diarahkan ke rute `/dashboard`.
+pass
+Kelola Menu
+TC2.1
+self.driver.find_element(By.XPATH, "//span[text()='Kelola Menu']").click()self.driver.find_element(By.XPATH, "//button[contains(.,'Tambah Menu')]").click()self.driver.find_element(By.ID, "name").send_keys("Kopi Caramel")self.driver.find_element(By.ID, "price").send_keys("15000")self.driver.find_element(By.ID, "stock").send_keys("20")self.driver.find_element(By.XPATH, "//button[text()='Simpan Menu']").click()
+Menu baru "Kopi Caramel" tersimpan di tabel `menu_items` MySQL dan langsung tampil pada daftar menu lokal.
+pass
+Kelola Menu
+TC2.2
+self.driver.find_element(By.XPATH, "//tr[contains(.,'Kopi Caramel')]//button[contains(@class,'text-stone-400')]").click()self.driver.find_element(By.XPATH, "//*[contains(text(),'Edit')]").click()self.driver.find_element(By.ID, "edit-price").clear()self.driver.find_element(By.ID, "edit-price").send_keys("18000")self.driver.find_element(By.XPATH, "//button[text()='Simpan Perubahan']").click()
+Harga menu Kopi Caramel berhasil terupdate menjadi Rp 18.000 di database MySQL.
+pass
+Kelola Menu
+TC2.3
+self.driver.find_element(By.XPATH, "//tr[contains(.,'Kopi Caramel')]//button[contains(@class,'text-stone-400')]").click()self.driver.find_element(By.XPATH, "//*[contains(text(),'Hapus')]").click()self.driver.switch_to.alert.accept()
+Menu Kopi Caramel berhasil terhapus dari database dan hilang dari daftar tabel di UI.
+pass
+Kelola Stok
+TC3.1
+self.driver.find_element(By.XPATH, "//span[text()='Stok Bahan']").click()self.driver.find_element(By.XPATH, "//button[contains(.,'Tambah Stok')]").click()self.driver.find_element(By.ID, "stock-name").send_keys("Cokelat Bubuk")self.driver.find_element(By.ID, "stock-qty").send_keys("10")self.driver.find_element(By.ID, "stock-unit").send_keys("kg")self.driver.find_element(By.ID, "stock-min").send_keys("2")self.driver.find_element(By.XPATH, "//button[text()='Simpan']").click()
+Stok Cokelat Bubuk berhasil masuk database `stock_items` dengan kuantitas 10.00 kg dan status "Aman".
+pass
+Kelola Stok
+TC3.2
+self.driver.find_element(By.XPATH, "//tr[contains(.,'Kopi Bubuk')]//button[contains(.,'Sesuaikan')]").click()self.driver.find_element(By.ID, "adjust-amount").send_keys("-9")self.driver.find_element(By.XPATH, "//button[text()='Simpan']").click()
+Jumlah Kopi Bubuk berkurang dari 10kg menjadi 1kg. Status stok otomatis berubah dari "Aman" menjadi "Kritis".
+pass
+POS & Order
+TC4.1
+self.driver.find_element(By.XPATH, "//span[text()='POS Terminal']").click()self.driver.find_element(By.XPATH, "//h3[contains(text(),'Nasi Goreng')]").click()self.driver.find_element(By.XPATH, "//button[contains(.,'Tunai')]").click()self.driver.find_element(By.XPATH, "//input[@type='number']").send_keys("36000")self.driver.find_element(By.XPATH, "//button[text()='Selesaikan Pembayaran']").click()
+Pesanan berhasil diproses, data transaksi masuk ke tabel `orders` and `order_items`. Stok menu Nasi Goreng di database berkurang sebanyak 2 porsi.
+pass
+POS & Order
+TC4.2
+self.driver.find_element(By.ID, "promo-code-input").send_keys("RAMADHAN20")self.driver.find_element(By.XPATH, "//button[text()='Terapkan']").click()
+Diskon sebesar 20% langsung memotong subtotal di keranjang POS. Usage count promo RAMADHAN20 di database bertambah 1.
+pass
+KDS
+TC5.1
+self.driver.find_element(By.XPATH, "//span[text()='Pesanan Masuk']").click()
+Muncul notifikasi bel (chime) secara dinamis and card pesanan baru masuk ke antrean KDS dengan status "Menunggu".
+pass
+KDS
+TC5.2
+self.driver.find_element(By.XPATH, "//button[contains(.,'MULAI MASAK')]").click()
+Status pesanan di database MySQL berubah menjadi "Diproses" and label di UI KDS berubah menjadi "Sedang Disiapkan".
+pass
+KDS
+TC5.3
+self.driver.find_element(By.XPATH, "//button[contains(.,'SELESAI')]").click()
+Status pesanan di database berubah menjadi "Selesai" and card berpindah dari daftar KDS aktif.
+pass
+Rating
+TC6.1
+self.driver.get("http://localhost:3000/ratings-input")self.driver.find_element(By.ID, "customer-name").send_keys("Andi")self.driver.find_element(By.XPATH, "//span[@data-value='5']").click()self.driver.find_element(By.ID, "comment").send_keys("Makanannya enak!")self.driver.find_element(By.XPATH, "//button[text()='Kirim Ulasan']").click()
+Rating tersimpan di tabel `ratings` MySQL dengan status default "Pending".
+pass
+Rating
+TC6.2
+self.driver.get("http://localhost:3000/ratings-admin")self.driver.find_element(By.XPATH, "//tr[contains(.,'Andi')]//button[text()='Tampilkan']").click()
+Status ulasan berubah menjadi "Ditampilkan" di database, ulasan Andi muncul pada katalog menu pelanggan.
+pass
+Kelola Promo
+TC7.1
+self.driver.find_element(By.XPATH, "//span[text()='Kelola Promo']").click()self.driver.find_element(By.XPATH, "//button[contains(.,'Tambah Promo')]").click()self.driver.find_element(By.ID, "promo-code").send_keys("PELAJAR5K")self.driver.find_element(By.XPATH, "//button[text()='Simpan']").click()
+Promo baru 'PELAJAR5K' tersimpan di database MySQL promos dan muncul di daftar UI.
+pass
+Kelola Poin
+TC8.1
+self.driver.find_element(By.XPATH, "//span[text()='Kelola Poin & Rewards']").click()self.driver.find_element(By.XPATH, "//button[contains(.,'Tambah Hadiah')]").click()self.driver.find_element(By.ID, "reward-name").send_keys("Gantungan Kunci")self.driver.find_element(By.XPATH, "//button[text()='Simpan']").click()
+Hadiah Gantungan Kunci berhasil ditambahkan ke katalog point_rewards dengan status 'Tersedia'.
+pass
+Smart Tag
+TC9.1
+self.driver.find_element(By.XPATH, "//span[text()='Smart Tag / Meja']").click()self.driver.find_element(By.XPATH, "//button[contains(.,'Tambah Meja')]").click()self.driver.find_element(By.ID, "tag-id").send_keys("TABLE-01")self.driver.find_element(By.XPATH, "//button[text()='Simpan']").click()
+Meja TABLE-01 berhasil disimpan ke database smart_tags dengan status 'Tersedia'.
+pass
+Smart Tag
+TC9.2
+self.driver.find_element(By.XPATH, "//tr[contains(.,'TABLE-01')]//button[contains(@class,'text-red-500')]").click()
+Meja TABLE-01 berhasil dihapus dari database smart_tags dan ter-update di UI.
+pass
+Laporan
+TC10.1
+self.driver.find_element(By.XPATH, "//span[text()='Laporan Penjualan']").click()self.driver.find_element(By.XPATH, "//button[contains(.,'Cetak PDF')]").click()
+File PDF laporan penjualan berhasil dibuat oleh server lokal dan terunduh otomatis oleh browser.
+pass
+Manajemen Staff
+TC11.1
+self.driver.find_element(By.XPATH, "//span[text()='Manajemen Staff']").click()self.driver.find_element(By.XPATH, "//button[contains(.,'Tambah Jadwal')]").click()self.driver.find_element(By.XPATH, "//button[text()='Simpan']").click()
+Jadwal shift baru staff berhasil tersimpan di database staff_schedules dan tampil di kalender.
+pass
+Kelola User
+TC12.1
+self.driver.find_element(By.XPATH, "//span[text()='Kelola User']").click()self.driver.find_element(By.XPATH, "//button[contains(.,'Tambah Pengguna')]").click()self.driver.find_element(By.ID, "user-name").send_keys("Budi Kasir")self.driver.find_element(By.ID, "user-email").send_keys("budi@ngolab.com")self.driver.find_element(By.XPATH, "//button[text()='Simpan Pengguna']").click()
+Pengguna baru Budi Kasir berhasil disimpan di database `users` dan muncul di baris tabel UI.
+pass
+Kelola User
+TC12.2
+self.driver.find_element(By.XPATH, "//tr[contains(.,'Budi Kasir')]//button[contains(@class,'text-stone-400')]").click()self.driver.find_element(By.XPATH, "//*[contains(text(),'Hapus Pengguna')]").click()
+Akun Budi Kasir terhapus dari database `users` dan baris Budi Kasir menghilang dari tabel UI.
+pass
+Katalog Menu
+TC13.1
+self.driver.find_element(By.XPATH, "//span[text()='Katalog Menu']").click()self.driver.implicitly_wait(3)
+Katalog berhasil memuat menu lokal dan menu eksternal dari server laptop teman (localhost:3001) secara terintegrasi.
+pass
+Histori
+TC14.1
+self.driver.find_element(By.XPATH, "//span[text()='Histori Transaksi']").click()self.driver.find_element(By.XPATH, "//button[contains(.,'Filter')]").click()self.driver.find_element(By.XPATH, "//*[contains(text(),'Success')]").click()self.driver.find_element(By.XPATH, "(//button[contains(@class,'text-stone-400')])[1]").click()
+Tabel menyaring transaksi lunas. Modal detil menampilkan daftar item pesanan ORD-2026-001 dengan total nominal yang sesuai.
+pass
+Histori
+TC14.2
+self.driver.find_element(By.XPATH, "(//button[contains(@class,'text-stone-400')])[2]").click()
+Membuka tab browser baru berisi pratinjau struk kasir berformat monospaced (thermal receipt style) dan memicu perintah print browser.
+pass
+Settings
+TC15.1
+self.driver.find_element(By.XPATH, "//span[text()='Pengaturan Umum']").click()self.driver.find_element(By.XPATH, "//button[contains(.,'Simpan Perubahan')]").click()
+Pengaturan baru berhasil disimpan dan pop-up toast hijau bertuliskan "Pengaturan berhasil disimpan!" berhasil ditampilkan.
+pass
+Dashboard
+TC16.1
+self.driver.find_element(By.XPATH, "//span[text()='Dashboard']").click()
+Halaman dashboard menampilkan ringkasan metrik penjualan, grafik visualisasi pendapatan, serta kotak alert peringatan stok bahan baku yang menipis atau kritis secara akurat.
+pass
+Pesanan Masuk
+TC17.1
+self.driver.find_element(By.XPATH, "//span[text()='Pesanan Masuk']").click()self.driver.find_element(By.XPATH, "//button[text()='Menunggu']").click()self.driver.find_element(By.XPATH, "(//button[contains(@class,'border-stone-200')])[1]").click()
+Halaman memfilter pesanan berstatus Menunggu dan membuka jendela print dialog untuk cetak struk pesanan.
+pass
+Persentase keberhasilan (pass): 100%
+
+4  Kesimpulan
+Pada bab ini, tim penguji membuat kesimpulan hasil pengujian. Pengujian fungsionalitas sistem Ngolab SmartOrder F&B menggunakan teknik Black Box Testing (Equivalence Partitioning & Boundary Value Analysis) dan otomasi Selenium WebDriver berjalan sukses dengan tingkat kelulusan 100%. Tidak ada defect fatal yang menghambat alur bisnis utama.Saran perbaikan untuk pengembangan sistem selanjutnya:1. Keamanan Kredensial: Menerapkan hashing password (misalnya bcrypt) pada database untuk keamanan data pengguna.2. Validasi Server-Side: Memperketat validasi di API Node Express agar aman dari manipulasi request data.3. Socket Real-time: Mengganti polling berkala KDS (3 detik) dengan WebSocket (Socket.IO) untuk sinkronisasi pesanan secara instan.

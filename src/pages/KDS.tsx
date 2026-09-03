@@ -7,14 +7,15 @@ import {
   AlertCircle,
   Flame,
   Check,
-  RotateCcw
+  RotateCcw,
+  Bell
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { cn } from '@/lib/utils';
+import { cn, playNotificationChime, playCallBellChime } from '@/lib/utils';
 import { toast } from 'sonner';
 
 interface OrderItem {
@@ -32,6 +33,7 @@ interface Order {
   status: 'Menunggu' | 'Sedang Disiapkan' | 'Selesai';
   type?: string;
   cookingStartedAt?: string;
+  createdAt?: string;
 }
 
 interface KDSProps {
@@ -53,9 +55,17 @@ export function KDS({ orders, setOrders, onUpdateStatus }: KDSProps) {
   const getTimeElapsed = (orderTime: string) => {
     if (!orderTime) return '-';
     try {
-      const [hours, minutes] = orderTime.split(':').map(Number);
-      const orderDate = new Date();
-      orderDate.setHours(hours, minutes, 0);
+      let orderDate: Date;
+      if (orderTime.includes('T') || orderTime.includes('-')) {
+        orderDate = new Date(orderTime);
+      } else {
+        const parts = orderTime.split(/[:\.]/);
+        if (parts.length < 2) return '-';
+        const hours = Number(parts[0]);
+        const minutes = Number(parts[1]);
+        orderDate = new Date();
+        orderDate.setHours(hours, minutes, 0);
+      }
       
       const diff = Math.floor((currentTime.getTime() - orderDate.getTime()) / 60000);
       if (diff < 0) return '0 m';
@@ -80,9 +90,17 @@ export function KDS({ orders, setOrders, onUpdateStatus }: KDSProps) {
   const getWaitSeverity = (orderTime: string) => {
     if (!orderTime) return 'normal';
     try {
-      const [hours, minutes] = orderTime.split(':').map(Number);
-      const orderDate = new Date();
-      orderDate.setHours(hours, minutes, 0);
+      let orderDate: Date;
+      if (orderTime.includes('T') || orderTime.includes('-')) {
+        orderDate = new Date(orderTime);
+      } else {
+        const parts = orderTime.split(/[:\.]/);
+        if (parts.length < 2) return 'normal';
+        const hours = Number(parts[0]);
+        const minutes = Number(parts[1]);
+        orderDate = new Date();
+        orderDate.setHours(hours, minutes, 0);
+      }
       const diff = (currentTime.getTime() - orderDate.getTime()) / 60000;
       
       if (diff >= 30) return 'critical';
@@ -106,7 +124,8 @@ export function KDS({ orders, setOrders, onUpdateStatus }: KDSProps) {
     if (newStatus === 'Sedang Disiapkan') {
       toast.info(`Pesanan ${orderId} mulai dimasak`);
     } else if (newStatus === 'Selesai') {
-      toast.success(`Pesanan ${orderId} telah selesai dan siap!`);
+      playCallBellChime();
+      toast.success(`🔔 Pesanan ${orderId} telah selesai dan siap disajikan!`);
     }
   };
 
@@ -152,6 +171,18 @@ export function KDS({ orders, setOrders, onUpdateStatus }: KDSProps) {
         </div>
         
         <div className="flex items-center justify-between sm:justify-end gap-1.5 p-1.5 bg-stone-100 rounded-2xl">
+          <Button
+            variant="outline"
+            className="h-12 sm:h-10 px-3 text-xs font-bold rounded-xl bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100 flex items-center gap-1.5 mr-1 shrink-0"
+            onClick={() => {
+              playNotificationChime();
+              toast.success('🔔 Suara Lonceng KDS Dapur Aktif!');
+            }}
+            title="Tes Suara Notifikasi"
+          >
+            <Bell size={16} className="animate-bounce" />
+            <span className="hidden md:inline">Tes Lonceng</span>
+          </Button>
           <Button 
             variant={filter === 'all' ? 'secondary' : 'ghost'} 
             onClick={() => setFilter('all')}
@@ -189,64 +220,73 @@ export function KDS({ orders, setOrders, onUpdateStatus }: KDSProps) {
       <ScrollArea className="flex-1 -mx-2 px-2">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 pb-6">
           {activeOrders.map((order) => {
-            const severity = getWaitSeverity(order.time);
+            const severity = getWaitSeverity(order.createdAt || order.time);
+            const isCooking = order.status === 'Sedang Disiapkan';
+            const isCritical = severity === 'critical';
             return (
               <Card key={order.id} className={cn(
-                "flex flex-col border-none shadow-lg overflow-hidden transition-all duration-300 rounded-3xl",
-                order.status === 'Sedang Disiapkan' ? "ring-4 ring-orange-500" : "ring-1 ring-stone-100",
-                severity === 'critical' && order.status !== 'Sedang Disiapkan' ? "animate-pulse ring-4 ring-red-500" : ""
+                "flex flex-col bg-white border border-stone-200/80 shadow-sm overflow-hidden transition-all duration-300 rounded-2xl",
+                isCooking && "border-orange-500/80 shadow-md shadow-orange-500/5",
+                isCritical && order.status === 'Menunggu' && "border-red-500 shadow-md shadow-red-500/5 animate-pulse"
               )}>
                 <CardHeader className={cn(
-                  "p-5 flex flex-row items-center justify-between space-y-0",
-                  order.status === 'Sedang Disiapkan' ? "bg-orange-500 text-white" : "bg-stone-900 text-white",
-                  severity === 'critical' && order.status === 'Menunggu' ? "bg-red-600 text-white" : ""
+                  "p-4 flex flex-row items-center justify-between space-y-0 border-b border-stone-100",
+                  isCooking ? "bg-orange-50/40" : "bg-stone-50/40",
+                  isCritical && order.status === 'Menunggu' ? "bg-red-50/40" : ""
                 )}>
                   <div>
                     <div className="flex items-center gap-2">
-                      <CardTitle className="text-xl font-black">{order.table || 'Walk-in'}</CardTitle>
-                      <Badge variant="outline" className="bg-white/20 text-white border-transparent text-[10px] font-bold">
+                      <CardTitle className="text-lg font-extrabold text-stone-900">{order.table || 'Walk-in'}</CardTitle>
+                      <Badge variant="secondary" className={cn(
+                        "text-[10px] font-bold px-1.5 py-0.5 rounded-md border-none",
+                        isCooking ? "bg-orange-100 text-orange-700" : "bg-stone-100 text-stone-700",
+                        isCritical && order.status === 'Menunggu' ? "bg-red-100 text-red-700" : ""
+                      )}>
                         #{order.id.slice(-4)}
                       </Badge>
                     </div>
-                    <div className="flex items-center gap-1.5 mt-2 text-[11px] font-bold">
-                      <Clock size={12} className="opacity-70" />
-                      <span className="opacity-80">Sejak {order.time}</span>
-                      {order.status === 'Sedang Disiapkan' ? (
-                        <span className="ml-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/30 text-white">
+                    <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-stone-500 font-medium">
+                      <Clock size={12} className="opacity-80" />
+                      <span>{order.time}</span>
+                      {isCooking ? (
+                        <span className="ml-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-semibold">
                           <Flame size={10} className="animate-pulse" />
-                          Cooking: {getCookingDuration(order.cookingStartedAt)}
+                          Masak: {getCookingDuration(order.cookingStartedAt)}
                         </span>
                       ) : (
                         <span className={cn(
-                          "ml-2 px-2 py-0.5 rounded-full",
-                          severity === 'critical' ? 'bg-red-200 text-red-900' : 'bg-white/20'
+                          "ml-2 px-2 py-0.5 rounded-full font-semibold",
+                          isCritical ? 'bg-red-100 text-red-750' : 'bg-stone-100 text-stone-600'
                         )}>
-                          Wait: {getTimeElapsed(order.time)}
+                          Tunggu: {getTimeElapsed(order.createdAt || order.time)}
                         </span>
                       )}
                     </div>
                   </div>
-                  <ChefHat size={28} className="opacity-30" />
+                  <ChefHat size={20} className={cn(
+                    "opacity-40",
+                    isCooking ? "text-orange-600" : "text-stone-400"
+                  )} />
                 </CardHeader>
                 
-                <CardContent className="flex-1 p-5">
-                  <div className="space-y-5">
+                <CardContent className="flex-1 p-4">
+                  <div className="space-y-4">
                     {order.items.map((item, idx) => (
-                      <div key={`${order.id}-${idx}`} className="space-y-2">
-                        <div className="flex items-start justify-between">
-                          <div className="flex gap-3">
-                            <span className="font-black text-2xl text-stone-900 leading-none">{item.quantity}</span>
-                            <div className="flex flex-col gap-1">
-                              <span className="font-bold text-lg text-stone-800 leading-none">{item.name}</span>
-                              {item.note && (
-                                <div className="flex items-start gap-1.5 p-2 bg-red-50 rounded-xl border border-red-100">
-                                  <AlertCircle size={14} className="text-red-600 mt-0.5 shrink-0" />
-                                  <p className="text-xs text-red-900 font-black leading-tight uppercase italic">
-                                    {item.note}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
+                      <div key={`${order.id}-${idx}`} className="space-y-1">
+                        <div className="flex items-start gap-2.5">
+                          <span className="flex items-center justify-center font-extrabold text-sm text-stone-900 bg-stone-100 w-6 h-6 rounded-md shrink-0">
+                            {item.quantity}x
+                          </span>
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <span className="font-semibold text-sm text-stone-800 break-words leading-tight">{item.name}</span>
+                            {item.note && (
+                              <div className="flex items-start gap-1 p-1.5 bg-rose-50 rounded-lg border border-rose-100">
+                                <AlertCircle size={12} className="text-rose-600 mt-0.5 shrink-0" />
+                                <p className="text-[10px] text-rose-800 font-bold leading-tight uppercase italic">
+                                  {item.note}
+                                </p>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -254,31 +294,31 @@ export function KDS({ orders, setOrders, onUpdateStatus }: KDSProps) {
                   </div>
                 </CardContent>
   
-                <Separator className="bg-stone-100 h-[2px]" />
+                <Separator className="bg-stone-100" />
   
-                <CardFooter className="p-4 bg-stone-50 flex gap-3">
+                <CardFooter className="p-3 bg-stone-50/50 flex gap-2">
                   {order.status === 'Menunggu' ? (
                     <Button 
-                      className="w-full h-16 bg-orange-600 hover:bg-orange-700 active:scale-95 text-white text-lg font-black rounded-2xl gap-3 shadow-md shadow-orange-200 transition-all"
+                      className="w-full h-11 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-xl gap-2 shadow-sm transition-all"
                       onClick={() => updateStatus(order.id, 'Sedang Disiapkan')}
                     >
-                      <Flame size={24} />
+                      <Flame size={14} />
                       MULAI MASAK
                     </Button>
                   ) : (
                     <>
                       <Button 
                         variant="outline" 
-                        className="flex-1 h-16 border-stone-200 text-stone-500 hover:bg-white active:scale-95 font-bold rounded-2xl shadow-sm transition-all"
+                        className="flex-1 h-11 border-stone-200 text-stone-500 hover:bg-white font-bold rounded-xl shadow-sm transition-all"
                         onClick={() => updateStatus(order.id, 'Menunggu')}
                       >
-                        <RotateCcw size={20} />
+                        <RotateCcw size={14} />
                       </Button>
                       <Button 
-                        className="flex-[3] h-16 bg-stone-900 hover:bg-stone-800 active:scale-95 text-white text-lg font-black rounded-2xl gap-3 shadow-md shadow-stone-200 transition-all"
+                        className="flex-[3] h-11 bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold rounded-xl gap-2 shadow-sm transition-all"
                         onClick={() => updateStatus(order.id, 'Selesai')}
                       >
-                        <CheckCircle2 size={24} />
+                        <CheckCircle2 size={14} />
                         SELESAI
                       </Button>
                     </>

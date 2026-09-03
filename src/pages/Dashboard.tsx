@@ -3,9 +3,7 @@ import {
   TrendingUp, 
   Users, 
   ShoppingBag, 
-  DollarSign,
-  ArrowUpRight,
-  ArrowDownRight
+  DollarSign
 } from 'lucide-react';
 import { 
   Card, 
@@ -29,6 +27,7 @@ import {
 } from 'recharts';
 import { cn } from '@/lib/utils';
 import { toast } from "sonner";
+import { apiFetch } from '@/lib/apiFetch';
 
 // We will calculate these dynamically from the real orders data
 
@@ -42,7 +41,7 @@ export function Dashboard({ menuItems, orders, stockItems }: DashboardProps) {
   const [tables, setTables] = React.useState<any[]>([]);
 
   React.useEffect(() => {
-    fetch('http://localhost:5000/api/smart-tags')
+    apiFetch('/api/smart-tags')
       .then(res => res.json())
       .then(data => {
         if (!data.error) setTables(data);
@@ -115,36 +114,24 @@ export function Dashboard({ menuItems, orders, stockItems }: DashboardProps) {
       value: `Rp ${(totalRevenue || 0).toLocaleString()}`,
       description: "Pendapatan keseluruhan",
       icon: DollarSign,
-      trend: "up",
-      color: "text-green-600",
-      bg: "bg-green-100"
     },
     {
       title: "Pesanan Hari Ini",
       value: todayOrders.length.toString(),
       description: `Rp ${todayRevenue.toLocaleString()}`,
       icon: ShoppingBag,
-      trend: "up",
-      color: "text-blue-600",
-      bg: "bg-blue-100"
     },
     {
       title: "Rata-rata Order",
       value: `Rp ${(totalRevenue / (orders.length || 1) || 0).toLocaleString()}`,
       description: "-3.2% penurunan kecil",
       icon: TrendingUp,
-      trend: "down",
-      color: "text-orange-600",
-      bg: "bg-orange-100"
     },
     {
       title: "Item Stok Kritis",
       value: stockItems.filter(i => i.status === 'critical').length.toString(),
       description: "Perlu restock segera",
       icon: ShoppingBag,
-      trend: "down",
-      color: "text-red-600",
-      bg: "bg-red-100"
     }
   ];
 
@@ -259,34 +246,26 @@ export function Dashboard({ menuItems, orders, stockItems }: DashboardProps) {
     <div className="space-y-6 pb-10">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-stone-900 leading-tight">Analitik Bisnis</h1>
-          <p className="text-sm text-stone-500">Pantau performa KPI dan ambil keputusan berbasis data.</p>
+          <h1 className="text-lg font-semibold text-neutral-900 leading-tight">Analitik Bisnis</h1>
+          <p className="text-xs text-neutral-500">Pantau performa KPI dan ambil keputusan berbasis data.</p>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat, i) => (
-          <Card key={i} className="border-none shadow-sm bg-white overflow-hidden">
+          <Card key={i} className="border border-neutral-200 bg-white">
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-xs font-bold uppercase tracking-wider text-stone-500">
+              <CardTitle className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
                 {stat.title}
               </CardTitle>
-              <div className={`${stat.bg} p-2 rounded-lg`}>
-                <stat.icon className={`h-4 w-4 ${stat.color}`} />
+              <div className="p-1.5 rounded-md bg-neutral-100">
+                <stat.icon className="h-4 w-4 text-neutral-700" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-black text-stone-900">{stat.value}</div>
-              <p className="text-[10px] text-stone-500 mt-1 flex items-center gap-1 font-medium">
-                {stat.trend === 'up' ? (
-                  <ArrowUpRight className="h-3 w-3 text-green-600" />
-                ) : (
-                  <ArrowDownRight className="h-3 w-3 text-red-600" />
-                )}
-                <span className={stat.trend === 'up' ? 'text-green-600' : 'text-red-600'}>
-                  {stat.description.split(' ')[0]}
-                </span>
-                {stat.description.split(' ').slice(1).join(' ')}
+              <div className="text-xl font-bold text-neutral-900">{stat.value}</div>
+              <p className="text-[10px] text-neutral-500 mt-1 font-medium">
+                {stat.description}
               </p>
             </CardContent>
           </Card>
@@ -294,61 +273,61 @@ export function Dashboard({ menuItems, orders, stockItems }: DashboardProps) {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="lg:col-span-4 border-none shadow-sm bg-white">
+        <Card className="lg:col-span-4 border border-neutral-200 bg-white">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle className="text-base font-bold">Tren Transaksi Smart Tag</CardTitle>
-              <CardDescription className="text-xs">
+              <CardTitle className="text-base font-semibold">Tren Transaksi Smart Tag</CardTitle>
+              <CardDescription className="text-[11px] text-neutral-500">
                 Perbandingan scan dan konversi order mingguan.
               </CardDescription>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <div className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-full bg-orange-500"></div>
-                <span className="text-[10px] font-bold text-stone-500">Order</span>
+                <div className="w-2 h-2 rounded-full bg-orange-500"></div>
+                <span className="text-[10px] font-semibold text-neutral-500">Order</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-full bg-blue-400"></div>
-                <span className="text-[10px] font-bold text-stone-500">Scan</span>
+                <div className="w-2 h-2 rounded-full bg-neutral-400"></div>
+                <span className="text-[10px] font-semibold text-neutral-500">Scan</span>
               </div>
             </div>
           </CardHeader>
-          <CardContent className="pl-2">
+          <CardContent className="pl-1">
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={salesData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f5f5f4" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e5e5" />
                   <XAxis 
                     dataKey="name" 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{fill: '#78716c', fontSize: 11, fontWeight: 600}}
+                    tick={{fill: '#737373', fontSize: 11, fontWeight: 600}}
                     dy={10}
                   />
                   <YAxis 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{fill: '#78716c', fontSize: 11}}
+                    tick={{fill: '#737373', fontSize: 11}}
                     tickFormatter={(value) => value >= 1000000 ? `${value/1000000}jt` : value}
                   />
                   <Tooltip 
-                    cursor={{fill: '#fafaf9'}}
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)', padding: '12px' }}
-                    labelStyle={{ fontWeight: 700, marginBottom: '4px', color: '#1c1917' }}
+                    cursor={{fill: '#fafafa'}}
+                    contentStyle={{ borderRadius: '8px', border: '1px solid #e5e5e5', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', padding: '10px' }}
+                    labelStyle={{ fontWeight: 700, marginBottom: '4px', color: '#171717' }}
                   />
                   <Bar 
                     dataKey="total" 
                     name="Pendapatan"
                     fill="#ea580c" 
-                    radius={[4, 4, 0, 0]} 
-                    barSize={20}
+                    radius={[3, 3, 0, 0]} 
+                    barSize={18}
                   />
                   <Bar 
                     dataKey="scans" 
                     name="Total Scan"
-                    fill="#60a5fa" 
-                    radius={[4, 4, 0, 0]} 
-                    barSize={20}
+                    fill="#a3a3a3" 
+                    radius={[3, 3, 0, 0]} 
+                    barSize={18}
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -356,21 +335,21 @@ export function Dashboard({ menuItems, orders, stockItems }: DashboardProps) {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-3 border-none shadow-sm bg-white">
+        <Card className="lg:col-span-3 border border-neutral-200 bg-white">
           <CardHeader>
-            <CardTitle className="text-base font-bold">Status Ketersediaan Stok</CardTitle>
-            <CardDescription className="text-xs">
+            <CardTitle className="text-base font-semibold">Status Ketersediaan Stok</CardTitle>
+            <CardDescription className="text-[11px] text-neutral-500">
               Monitor sisa item vs ambang batas aman.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-6 mt-2">
+            <div className="space-y-5 mt-2">
               {stockItems.slice(0, 5).map((item, idx) => (
                 <div key={idx} className="space-y-2">
                   <div className="flex justify-between items-end">
-                    <span className="text-xs font-bold text-stone-700">{item.name}</span>
+                    <span className="text-xs font-semibold text-neutral-700">{item.name}</span>
                     <span className={cn(
-                      "text-[10px] font-black px-2 py-0.5 rounded",
+                      "text-[10px] font-semibold px-2 py-0.5 rounded",
                       item.status === 'critical' ? "bg-red-50 text-red-600" : 
                       item.status === 'warning' ? "bg-orange-50 text-orange-600" : "bg-green-50 text-green-600"
                     )}>
@@ -442,10 +421,10 @@ export function Dashboard({ menuItems, orders, stockItems }: DashboardProps) {
           ))}
         </div>
 
-        <Card className="md:col-span-2 border-none shadow-sm bg-white">
+        <Card className="md:col-span-2 border border-neutral-200 bg-white">
           <CardHeader>
-            <CardTitle className="text-base font-bold">Produktivitas Layanan per Zona</CardTitle>
-            <CardDescription className="text-xs">
+            <CardTitle className="text-base font-semibold">Produktivitas Layanan per Zona</CardTitle>
+            <CardDescription className="text-[11px] text-neutral-500">
               Distribusi nilai transaksi berdasarkan area fisik restoran.
             </CardDescription>
           </CardHeader>
@@ -453,23 +432,23 @@ export function Dashboard({ menuItems, orders, stockItems }: DashboardProps) {
             <div className="h-[250px] mt-4">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={zonePerformance}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f5f5f4" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e5e5" />
                   <XAxis 
                     dataKey="name" 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{fill: '#44403c', fontSize: 11, fontWeight: 700}}
+                    tick={{fill: '#737373', fontSize: 11, fontWeight: 700}}
                   />
                   <YAxis hide />
                   <Tooltip 
-                    cursor={{fill: '#fafaf9'}}
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' }}
+                    cursor={{fill: '#fafafa'}}
+                    contentStyle={{ borderRadius: '8px', border: '1px solid #e5e5e5', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
                   />
                   <Bar 
                     dataKey="value" 
-                    fill="#1c1917" 
-                    radius={[6, 6, 0, 0]} 
-                    barSize={45}
+                    fill="#171717" 
+                    radius={[4, 4, 0, 0]} 
+                    barSize={40}
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -477,8 +456,8 @@ export function Dashboard({ menuItems, orders, stockItems }: DashboardProps) {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
               {zonePerformance.map((zone, idx) => (
                 <div key={idx} className="text-center">
-                  <p className="text-[10px] text-stone-400 font-bold uppercase">{zone.name}</p>
-                  <p className="text-xs font-black text-stone-900">Rp {zone.value >= 1000000 ? `${(zone.value/1000000).toFixed(1)}jt` : zone.value}</p>
+                  <p className="text-[10px] text-neutral-400 font-semibold uppercase tracking-wide">{zone.name}</p>
+                  <p className="text-xs font-semibold text-neutral-900">Rp {zone.value >= 1000000 ? `${(zone.value/1000000).toFixed(1)}jt` : zone.value}</p>
                 </div>
               ))}
             </div>

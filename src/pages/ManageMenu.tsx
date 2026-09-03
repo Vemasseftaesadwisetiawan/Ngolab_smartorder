@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Plus, 
   Search, 
@@ -8,7 +8,9 @@ import {
   Eye,
   Filter,
   X,
-  Settings
+  Utensils,
+  Image as ImageIcon,
+  Calendar
 } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,7 +33,7 @@ import {
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -50,8 +52,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from '@/lib/utils';
 import { toast } from "sonner";
+import { cn } from '@/lib/utils';
+import { apiFetch } from '@/lib/apiFetch';
+import { EmptyState } from '@/components/ui/empty-state';
 
 interface MenuItem {
   id: string;
@@ -61,7 +65,11 @@ interface MenuItem {
   status: string;
   stock: number;
   description?: string;
+  image?: string;
   ingredients?: { stockId: string; amount: number }[];
+  availability_type?: string;
+  available_from?: string;
+  available_to?: string;
 }
 
 interface StockItem {
@@ -85,60 +93,69 @@ export function ManageMenu({ menuItems, setMenuItems, stockItems, searchTerm = '
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('Semua');
+  const [addCategory, setAddCategory] = useState<string>('Makanan');
+  const [editCategory, setEditCategory] = useState<string>('Makanan');
+  const [imagePreview, setImagePreview] = useState<string>('');
+  const [availabilityType, setAvailabilityType] = useState<string>('permanent');
+  const [availableFrom, setAvailableFrom] = useState<string>('');
+  const [availableTo, setAvailableTo] = useState<string>('');
+  const [editAvailabilityType, setEditAvailabilityType] = useState<string>('permanent');
+  const [editAvailableFrom, setEditAvailableFrom] = useState<string>('');
+  const [editAvailableTo, setEditAvailableTo] = useState<string>('');
+  const today = new Date().toISOString().split('T')[0];
   
-  // Recipe related state
-  const [currentRecipe, setCurrentRecipe] = useState<{ stockId: string; amount: number }[]>([]);
-
   const effectiveSearchTerm = searchTerm || localSearchTerm;
 
-  const handleAddIngredient = () => {
-    setCurrentRecipe([...currentRecipe, { stockId: stockItems[0]?.id || '', amount: 1 }]);
-  };
-
-  const handleRemoveIngredient = (index: number) => {
-    setCurrentRecipe(currentRecipe.filter((_, i) => i !== index));
-  };
-
-  const handleIngredientChange = (index: number, field: 'stockId' | 'amount', value: string | number) => {
-    const updatedRecipe = [...currentRecipe];
-    updatedRecipe[index] = { ...updatedRecipe[index], [field]: value };
-    setCurrentRecipe(updatedRecipe);
-  };
+  const filteredMenu = useMemo(() => {
+    return menuItems.filter(item => {
+      const matchesSearch = item.name.toLowerCase().includes(effectiveSearchTerm.toLowerCase()) ||
+        item.category.toLowerCase().includes(effectiveSearchTerm.toLowerCase());
+      const matchesCategory = categoryFilter === 'Semua' || item.category === categoryFilter;
+      return matchesSearch && matchesCategory;
+    });
+  }, [menuItems, effectiveSearchTerm, categoryFilter]);
 
   const handleSaveMenu = async (e: React.FormEvent) => {
     e.preventDefault();
     const formElement = e.target as HTMLFormElement;
     const formData = new FormData(formElement);
     
-    // Tambahkan resep bahan baku ke dalam form data (ubah array jadi string json)
-    formData.append('ingredients', JSON.stringify(currentRecipe));
+    // Manual append for controlled components not tracked by native FormData
+    formData.set('category', addCategory);
+    formData.set('availability_type', availabilityType);
+    formData.set('available_from', availableFrom);
+    formData.set('available_to', availableTo);
 
     try {
-      const response = await fetch('http://localhost:5000/api/menu', {
+      const response = await apiFetch('/api/menu', {
         method: 'POST',
-        body: formData, // FormData otomatis handle file upload (image) dan data teks
+        body: formData,
       });
 
       if (!response.ok) throw new Error('Gagal menambah menu');
 
-      // Ambil ulang data dari backend (Bisa juga menggunakan trigger prop, tapi untuk simpelnya kita paksa reload data atau sekadar alert)
       toast.success("Menu berhasil ditambahkan ke Database!");
       setIsAddDialogOpen(false);
-      setCurrentRecipe([]);
+      setImagePreview('');
+      setAddCategory('Makanan');
+      setAvailabilityType('permanent');
+      setAvailableFrom('');
+      setAvailableTo('');
       
-      // Memberitahu App.tsx untuk mengambil data ulang (idealnya diteruskan via props refresh),
-      // Tapi untuk saat ini kita bisa tambahkan data barunya ke state sementara agar langsung muncul
       const result = await response.json();
       const newItem: MenuItem = {
         id: result.id,
         name: formData.get('name') as string,
-        category: formData.get('category') as string,
+        category: addCategory,
         price: Number(formData.get('price')),
         status: Number(formData.get('stock')) > 0 ? 'Tersedia' : 'Habis',
         stock: Number(formData.get('stock')),
         description: formData.get('description') as string,
-        image: result.image_url ? `http://localhost:5000${result.image_url}` : `https://picsum.photos/seed/${result.id}/300/300`,
-        ingredients: currentRecipe, // Masukkan resep ke state UI
+        image: result.image_url ? `http://${window.location.hostname}:5000${result.image_url}` : `https://picsum.photos/seed/${result.id}/300/300`,
+        ingredients: [],
+        availability_type: (formData.get('availability_type') as string) || 'permanent',
+        available_from: (formData.get('available_from') as string) || undefined,
+        available_to: (formData.get('available_to') as string) || undefined,
       };
       setMenuItems(prev => [newItem, ...prev]);
       
@@ -155,37 +172,44 @@ export function ManageMenu({ menuItems, setMenuItems, stockItems, searchTerm = '
     const formElement = e.target as HTMLFormElement;
     const formData = new FormData(formElement);
     
-    // Tambahkan resep terbaru ke FormData
-    formData.append('ingredients', JSON.stringify(currentRecipe));
+    // Manual append for controlled components
+    formData.set('category', editCategory);
+    formData.set('availability_type', editAvailabilityType);
+    formData.set('available_from', editAvailableFrom);
+    formData.set('available_to', editAvailableTo);
 
     try {
-      const response = await fetch(`http://localhost:5000/api/menu/${editingItem.id}`, {
+      const response = await apiFetch(`/api/menu/${editingItem.id}`, {
         method: 'PUT',
         body: formData,
       });
 
       if (!response.ok) throw new Error('Gagal mengupdate menu');
+      const resData = await response.json().catch(() => ({}));
 
       toast.success("Menu berhasil diperbarui di Database!");
       setIsEditDialogOpen(false);
+      setImagePreview('');
+      setEditAvailabilityType('permanent');
+      setEditAvailableFrom('');
+      setEditAvailableTo('');
       
-      // Update data di tabel secara lokal
       const updatedItem: MenuItem = {
         ...editingItem,
         name: formData.get('name') as string,
-        category: formData.get('category') as string,
+        category: editCategory,
         price: Number(formData.get('price')),
         status: Number(formData.get('stock')) > 0 ? 'Tersedia' : 'Habis',
         stock: Number(formData.get('stock')),
         description: formData.get('description') as string,
-        ingredients: currentRecipe, // Update resep di UI
-        // Jika ada foto baru (yang tidak bisa langsung diambil URL-nya di frontend secara instan tanpa preview), kita pakai foto lama dulu.
-        // Di aplikasi nyata, Anda mungkin ingin me-reload (fetch) semua data setelah update.
+        image: resData.image_url ? `http://${window.location.hostname}:5000${resData.image_url}` : editingItem.image,
+        availability_type: (formData.get('availability_type') as string) || 'permanent',
+        available_from: (formData.get('available_from') as string) || undefined,
+        available_to: (formData.get('available_to') as string) || undefined,
       };
 
       setMenuItems(prev => prev.map(item => item.id === editingItem.id ? updatedItem : item));
       setEditingItem(null);
-      setCurrentRecipe([]);
       
     } catch (error) {
       toast.error("Terjadi kesalahan saat update data.");
@@ -197,22 +221,25 @@ export function ManageMenu({ menuItems, setMenuItems, stockItems, searchTerm = '
     if(!confirm("Anda yakin ingin menghapus menu ini dari database?")) return;
     
     try {
-      const response = await fetch(`http://localhost:5000/api/menu/${id}`, { method: 'DELETE' });
+      const response = await apiFetch(`/api/menu/${id}`, { method: 'DELETE' });
       if (!response.ok) throw new Error('Gagal menghapus');
       
       setMenuItems(prev => prev.filter(item => item.id !== id));
-      toast.error("Menu berhasil dihapus dari Database");
+      toast.success("Menu berhasil dihapus dari Database");
     } catch (error) {
       toast.error("Gagal menghapus data.");
     }
   };
 
-  const filteredMenu = menuItems.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(effectiveSearchTerm.toLowerCase()) ||
-      item.category.toLowerCase().includes(effectiveSearchTerm.toLowerCase());
-    const matchesCategory = categoryFilter === 'Semua' || item.category === categoryFilter;
-    return matchesSearch && matchesCategory;
-  });
+  const openEditDialog = (item: MenuItem) => {
+    setEditingItem(item);
+    setEditCategory(item.category || 'Makanan');
+    setImagePreview(item.image || '');
+    setEditAvailabilityType(item.availability_type || 'permanent');
+    setEditAvailableFrom(item.available_from || '');
+    setEditAvailableTo(item.available_to || '');
+    setIsEditDialogOpen(true);
+  };
 
   return (
     <div className="space-y-6">
@@ -267,10 +294,7 @@ export function ManageMenu({ menuItems, setMenuItems, stockItems, searchTerm = '
             </DropdownMenuContent>
           </DropdownMenu>
           
-            <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
-              setIsAddDialogOpen(open);
-              if (open) setCurrentRecipe([]);
-            }}>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger
               render={
                 <Button className="gap-2 bg-orange-600 hover:bg-orange-700">
@@ -295,7 +319,7 @@ export function ManageMenu({ menuItems, setMenuItems, stockItems, searchTerm = '
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
                       <Label htmlFor="category">Kategori</Label>
-                      <Select name="category" defaultValue="Makanan">
+                      <Select value={addCategory} onValueChange={setAddCategory}>
                         <SelectTrigger id="category">
                           <SelectValue placeholder="Pilih kategori" />
                         </SelectTrigger>
@@ -320,69 +344,33 @@ export function ManageMenu({ menuItems, setMenuItems, stockItems, searchTerm = '
                     <Input id="stock" name="stock" type="number" placeholder="100" />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="image" className="text-orange-600">Upload Foto Menu</Label>
+                    <Label htmlFor="availability_type">Tipe Ketersediaan</Label>
+                    <Select name="availability_type" value={availabilityType} onValueChange={setAvailabilityType}>
+                      <SelectTrigger id="availability_type">
+                        <SelectValue placeholder="Pilih tipe" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="permanent">Menu Tetap</SelectItem>
+                        <SelectItem value="scheduled">Menu Tanggal Tertentu</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {availabilityType === 'scheduled' && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="available_from">Dari Tanggal</Label>
+                        <Input id="available_from" name="available_from" type="date" value={availableFrom} onChange={(e) => setAvailableFrom(e.target.value)} />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="available_to">Sampai Tanggal</Label>
+                        <Input id="available_to" name="available_to" type="date" value={availableTo} onChange={(e) => setAvailableTo(e.target.value)} />
+                      </div>
+                    </div>
+                  )}
+                  <div className="grid gap-2">
+                    <Label htmlFor="image" className="text-orange-600 font-semibold">Upload Foto Menu</Label>
                     <Input id="image" name="image" type="file" accept="image/*" className="cursor-pointer" />
                     <p className="text-[10px] text-stone-500 italic">*Format: JPG, PNG. Maksimal 2MB.</p>
-                  </div>
-                  
-                  {/* KONFIGURASI RESEP */}
-                  <div className="mt-4 pt-4 border-t border-stone-100">
-                    <div className="flex items-center justify-between mb-4">
-                      <Label className="text-sm font-bold flex items-center gap-2">
-                        <Settings size={14} className="text-orange-600" />
-                        Konfigurasi Resep (Bahan Baku)
-                      </Label>
-                      <Button type="button" variant="outline" size="sm" onClick={handleAddIngredient} className="h-7 text-[10px] gap-1">
-                        <Plus size={12} /> Tambah Bahan
-                      </Button>
-                    </div>
-                    
-                    <div className="space-y-3 max-h-[200px] overflow-y-auto pr-2">
-                      {currentRecipe.map((ing, idx) => (
-                        <div key={idx} className="flex gap-2 items-end">
-                          <div className="flex-1 space-y-1">
-                            <Label className="text-[10px] text-stone-400">Pilih Bahan</Label>
-                            <Select 
-                              value={ing.stockId} 
-                              onValueChange={(val) => handleIngredientChange(idx, 'stockId', val)}
-                            >
-                              <SelectTrigger className="h-8 text-xs">
-                                <SelectValue placeholder="Pilih bahan" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {stockItems.map(s => (
-                                  <SelectItem key={s.id} value={s.id}>{s.name} ({s.unit})</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="w-24 space-y-1">
-                            <Label className="text-[10px] text-stone-400">Jumlah / Porsi</Label>
-                            <Input 
-                              type="number" 
-                              step="0.01"
-                              className="h-8 text-xs" 
-                              value={ing.amount}
-                              onChange={(e) => handleIngredientChange(idx, 'amount', Number(e.target.value))}
-                            />
-                          </div>
-                          <Button 
-                            type="button" 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 text-stone-400 hover:text-red-500"
-                            onClick={() => handleRemoveIngredient(idx)}
-                          >
-                            <X size={14} />
-                          </Button>
-                        </div>
-                      ))}
-                      {currentRecipe.length === 0 && (
-                        <div className="py-4 text-center border-2 border-dashed border-stone-100 rounded-lg">
-                          <p className="text-[10px] text-stone-400 italic">Belum ada bahan baku dikonfigurasi.</p>
-                        </div>
-                      )}
-                    </div>
                   </div>
                 </div>
                 <DialogFooter>
@@ -395,6 +383,33 @@ export function ManageMenu({ menuItems, setMenuItems, stockItems, searchTerm = '
         </div>
       </div>
 
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card className="border-none shadow-sm bg-white">
+          <CardContent className="p-5">
+            <p className="text-xs text-stone-500 font-medium">Total Menu</p>
+            <p className="text-2xl font-bold text-stone-900 mt-1">{menuItems.length}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm bg-white">
+          <CardContent className="p-5">
+            <p className="text-xs text-stone-500 font-medium">Menu Tetap</p>
+            <p className="text-2xl font-bold text-orange-600 mt-1">{menuItems.filter(i => i.availability_type === 'permanent').length}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm bg-white">
+          <CardContent className="p-5">
+            <p className="text-xs text-stone-500 font-medium">Scheduled Hari Ini</p>
+            <p className="text-2xl font-bold text-green-600 mt-1">{menuItems.filter(i => i.availability_type === 'scheduled' && i.available_from && i.available_to && i.available_from <= today && i.available_to >= today).length}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm bg-white">
+          <CardContent className="p-5">
+            <p className="text-xs text-stone-500 font-medium">Habis</p>
+            <p className="text-2xl font-bold text-red-600 mt-1">{menuItems.filter(i => i.status === 'Habis').length}</p>
+          </CardContent>
+        </Card>
+      </div>
+
       <Card className="border-none shadow-sm bg-white">
         <CardContent className="p-0">
           <Table>
@@ -402,7 +417,7 @@ export function ManageMenu({ menuItems, setMenuItems, stockItems, searchTerm = '
               <TableRow className="hover:bg-transparent border-stone-100">
                 <TableHead className="w-[300px]">Nama Menu</TableHead>
                 <TableHead>Kategori</TableHead>
-                <TableHead className="hidden md:table-cell w-[250px]">Deskripsi</TableHead>
+                <TableHead className="hidden md:table-cell">Deskripsi</TableHead>
                 <TableHead>Harga</TableHead>
                 <TableHead>Stok</TableHead>
                 <TableHead>Status</TableHead>
@@ -411,51 +426,66 @@ export function ManageMenu({ menuItems, setMenuItems, stockItems, searchTerm = '
             </TableHeader>
             <TableBody>
               {filteredMenu.map((item) => (
-                <TableRow key={item.id} className="border-stone-50 hover:bg-stone-50/50 transition-colors">
+                <TableRow key={item.id} className="border-stone-50 hover:bg-stone-50/80 transition-colors">
                   <TableCell className="font-medium text-stone-900">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-stone-100 overflow-hidden">
+                      <div className="w-10 h-10 rounded-lg bg-stone-100 overflow-hidden flex-shrink-0">
                         <img 
-                          src={item.image && item.image.startsWith('/uploads') ? `http://localhost:5000${item.image}` : (item.image || `https://picsum.photos/seed/${item.id}/100/100`)} 
+                          src={item.image && item.image.startsWith('/uploads') ? `http://${window.location.hostname}:5000${item.image}` : (item.image || `https://picsum.photos/seed/${item.id}/100/100`)} 
                           alt={item.name}
                           className="w-full h-full object-cover"
                           referrerPolicy="no-referrer"
                         />
                       </div>
-                      {item.name}
+                      <span className="font-semibold">{item.name}</span>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="font-normal border-stone-200 bg-stone-50">
-                      {item.category}
-                    </Badge>
+                    <div className="flex flex-col gap-1">
+                      <Badge variant="outline" className="font-normal border-stone-200 bg-stone-50 w-fit">
+                        {item.category}
+                      </Badge>
+                      {item.availability_type === 'scheduled' && item.available_from && item.available_to && (
+                        <span className="text-[10px] text-orange-600 font-semibold flex items-center gap-1">
+                          <Calendar size={10} />
+                          {item.available_from} - {item.available_to}
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="hidden md:table-cell text-sm text-stone-500 max-w-[250px] truncate">
                     {item.description || <span className="italic text-stone-300">Tidak ada deskripsi</span>}
                   </TableCell>
-                  <TableCell className="font-mono">
+                  <TableCell className="font-mono font-semibold">
                     Rp {item.price.toLocaleString()}
                   </TableCell>
                   <TableCell>
-                    <span className={item.stock < 10 ? "text-red-600 font-medium" : "text-stone-600"}>
+                    <span className={item.stock < 10 ? "text-red-600 font-semibold" : "text-stone-600 font-medium"}>
                       {item.stock}
                     </span>
                   </TableCell>
                   <TableCell>
-                    <Badge 
-                      className={item.status === 'Tersedia' 
-                        ? "bg-green-100 text-green-700 hover:bg-green-100 border-none" 
-                        : "bg-red-100 text-red-700 hover:bg-red-100 border-none"
-                      }
-                    >
-                      {item.status}
-                    </Badge>
+                    <div className="flex flex-col gap-1">
+                      <Badge 
+                        className={item.status === 'Tersedia' 
+                          ? "bg-green-100 text-green-700 hover:bg-green-100 border-none" 
+                          : "bg-red-100 text-red-700 hover:bg-red-100 border-none"
+                        }
+                      >
+                        {item.status}
+                      </Badge>
+                      {item.availability_type === 'scheduled' && (
+                        <span className="text-[10px] text-orange-600 font-semibold">
+                          Tanggal Tertentu
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger
                         render={
-                          <Button variant="ghost" size="icon" className="text-stone-400">
+                          <Button variant="ghost" size="icon" className="text-stone-400 hover:text-stone-600">
                             <MoreVertical size={18} />
                           </Button>
                         }
@@ -465,13 +495,10 @@ export function ManageMenu({ menuItems, setMenuItems, stockItems, searchTerm = '
                           <DropdownMenuItem className="gap-2" onClick={() => toast.info(`Detail: ${item.name}`)}>
                             <Eye size={16} /> Lihat Detail
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="gap-2" onClick={() => {
-                            setEditingItem(item);
-                            setCurrentRecipe(item.ingredients || []);
-                            setIsEditDialogOpen(true);
-                          }}>
+                          <DropdownMenuItem className="gap-2" onClick={() => openEditDialog(item)}>
                             <Edit2 size={16} /> Edit
                           </DropdownMenuItem>
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem className="gap-2 text-red-600" onClick={() => handleDeleteMenu(item.id)}>
                             <Trash2 size={16} /> Hapus
                           </DropdownMenuItem>
@@ -481,10 +508,40 @@ export function ManageMenu({ menuItems, setMenuItems, stockItems, searchTerm = '
                   </TableCell>
                 </TableRow>
               ))}
+              {filteredMenu.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-32">
+                    <EmptyState
+                      icon={<Utensils size={48} className="text-stone-300" />}
+                      title="Tidak ada menu ditemukan"
+                      description={
+                        effectiveSearchTerm || categoryFilter !== 'Semua'
+                          ? "Coba ubah kata kunci pencarian atau filter Anda."
+                          : "Mulai dengan menambahkan menu pertama Anda."
+                      }
+                      action={
+                        (effectiveSearchTerm || categoryFilter !== 'Semua') && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              setLocalSearchTerm('');
+                              setCategoryFilter('Semua');
+                            }}
+                          >
+                            Reset Filter
+                          </Button>
+                        )
+                      }
+                    />
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[525px]">
           <form onSubmit={handleUpdateMenu}>
@@ -503,7 +560,7 @@ export function ManageMenu({ menuItems, setMenuItems, stockItems, searchTerm = '
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
                     <Label htmlFor="edit-category">Kategori</Label>
-                    <Select name="category" defaultValue={editingItem.category}>
+                    <Select value={editCategory} onValueChange={setEditCategory}>
                       <SelectTrigger id="edit-category">
                         <SelectValue placeholder="Pilih kategori" />
                       </SelectTrigger>
@@ -528,69 +585,42 @@ export function ManageMenu({ menuItems, setMenuItems, stockItems, searchTerm = '
                   <Input id="edit-stock" name="stock" type="number" defaultValue={editingItem.stock} />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="edit-image" className="text-orange-600">Ganti Foto Menu</Label>
+                  <Label htmlFor="edit-availability_type">Tipe Ketersediaan</Label>
+                  <Select name="availability_type" value={editAvailabilityType} onValueChange={setEditAvailabilityType}>
+                    <SelectTrigger id="edit-availability_type">
+                      <SelectValue placeholder="Pilih tipe" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="permanent">Menu Tetap</SelectItem>
+                      <SelectItem value="scheduled">Menu Tanggal Tertentu</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {editAvailabilityType === 'scheduled' && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="edit-available_from">Dari Tanggal</Label>
+                      <Input id="edit-available_from" name="available_from" type="date" value={editAvailableFrom} onChange={(e) => setEditAvailableFrom(e.target.value)} />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="edit-available_to">Sampai Tanggal</Label>
+                      <Input id="edit-available_to" name="available_to" type="date" value={editAvailableTo} onChange={(e) => setEditAvailableTo(e.target.value)} />
+                    </div>
+                  </div>
+                )}
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-image" className="text-orange-600 font-semibold">Ganti Foto Menu</Label>
                   <Input id="edit-image" name="image" type="file" accept="image/*" className="cursor-pointer" />
                   <p className="text-[10px] text-stone-500 italic">*Biarkan kosong jika tidak ingin mengubah foto lama.</p>
-                </div>
-
-                {/* KONFIGURASI RESEP EDIT */}
-                <div className="mt-4 pt-4 border-t border-stone-100">
-                  <div className="flex items-center justify-between mb-4">
-                    <Label className="text-sm font-bold flex items-center gap-2">
-                      <Settings size={14} className="text-orange-600" />
-                      Edit Resep (Bahan Baku)
-                    </Label>
-                    <Button type="button" variant="outline" size="sm" onClick={handleAddIngredient} className="h-7 text-[10px] gap-1">
-                      <Plus size={12} /> Tambah Bahan
-                    </Button>
-                  </div>
-                  
-                  <div className="space-y-3 max-h-[200px] overflow-y-auto pr-2">
-                    {currentRecipe.map((ing, idx) => (
-                      <div key={idx} className="flex gap-2 items-end">
-                        <div className="flex-1 space-y-1">
-                          <Label className="text-[10px] text-stone-400">Pilih Bahan</Label>
-                          <Select 
-                            value={ing.stockId} 
-                            onValueChange={(val) => handleIngredientChange(idx, 'stockId', val)}
-                          >
-                            <SelectTrigger className="h-8 text-xs">
-                              <SelectValue placeholder="Pilih bahan" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {stockItems.map(s => (
-                                <SelectItem key={s.id} value={s.id}>{s.name} ({s.unit})</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="w-24 space-y-1">
-                          <Label className="text-[10px] text-stone-400">Jumlah / Porsi</Label>
-                          <Input 
-                            type="number" 
-                            step="0.01"
-                            className="h-8 text-xs" 
-                            value={ing.amount}
-                            onChange={(e) => handleIngredientChange(idx, 'amount', Number(e.target.value))}
-                          />
-                        </div>
-                        <Button 
-                          type="button" 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-stone-400 hover:text-red-500"
-                          onClick={() => handleRemoveIngredient(idx)}
-                        >
-                          <X size={14} />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
                 </div>
               </div>
             )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>Batal</Button>
+              <Button type="button" variant="outline" onClick={() => {
+                setIsEditDialogOpen(false);
+                setEditingItem(null);
+                setImagePreview('');
+              }}>Batal</Button>
               <Button type="submit" className="bg-orange-600 hover:bg-orange-700">Simpan Perubahan</Button>
             </DialogFooter>
           </form>

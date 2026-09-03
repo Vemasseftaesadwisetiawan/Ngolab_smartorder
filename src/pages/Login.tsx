@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { UtensilsCrossed, Lock, Mail, ArrowRight, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiFetch, setAuthToken } from '@/lib/apiFetch';
 
 interface LoginProps {
   onLogin: (role: string) => void;
@@ -20,19 +21,21 @@ export function Login({ onLogin }: LoginProps) {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5000/api/login', {
+      const response = await apiFetch('/api/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
 
       const data = await response.json();
 
-      if (response.ok) {
-        toast.success(data.message || `Selamat datang, ${data.user.name}!`);
+      if (response.ok && data.success) {
+        if (data.token) {
+          setAuthToken(data.token);
+        }
+        toast.success(data.message || `Selamat datang, ${data.user?.name}!`);
         onLogin(data.user.role);
       } else {
-        toast.error(data.error || 'Login gagal');
+        toast.error(data.message || data.error || 'Login gagal');
       }
     } catch (error) {
       toast.error('Gagal terhubung ke server database. Pastikan server nyala.');
