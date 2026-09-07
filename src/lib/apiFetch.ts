@@ -1,7 +1,7 @@
 // Helper utilitas untuk pemanggilan API terpusat dengan autentikasi JWT
 export function getApiBaseUrl(): string {
-  const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-  return `http://${host}:5000`;
+  if (typeof window === 'undefined') return 'http://localhost:5014';
+  return '';
 }
 
 export function getAuthToken(): string | null {
