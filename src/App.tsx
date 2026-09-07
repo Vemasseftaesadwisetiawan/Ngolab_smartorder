@@ -99,7 +99,7 @@ export default function App() {
             displayed: item.displayed !== undefined ? Boolean(item.displayed) : true,
             description: item.description || '',
             promoPrice: item.promoPrice ? Number(item.promoPrice) : undefined,
-            image: item.image_url ? `${baseUrl}${item.image_url}` : `https://picsum.photos/seed/${item.id}/300/300`,
+            image: item.image_url ? `${window.location.origin}${item.image_url}` : `https://picsum.photos/seed/${item.id}/300/300`,
             ingredients: (item.ingredients || []).map((ing: any) => ({
               ...ing,
               stockId: String(ing.stockId)

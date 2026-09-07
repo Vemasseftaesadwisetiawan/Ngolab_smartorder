@@ -151,7 +151,7 @@ export function ManageMenu({ menuItems, setMenuItems, stockItems, searchTerm = '
         status: Number(formData.get('stock')) > 0 ? 'Tersedia' : 'Habis',
         stock: Number(formData.get('stock')),
         description: formData.get('description') as string,
-        image: result.image_url ? `http://${window.location.hostname}:5000${result.image_url}` : `https://picsum.photos/seed/${result.id}/300/300`,
+        image: result.image_url ? `${window.location.origin}${result.image_url}` : `https://picsum.photos/seed/${result.id}/300/300`,
         ingredients: [],
         availability_type: (formData.get('availability_type') as string) || 'permanent',
         available_from: (formData.get('available_from') as string) || undefined,
@@ -202,7 +202,7 @@ export function ManageMenu({ menuItems, setMenuItems, stockItems, searchTerm = '
         status: Number(formData.get('stock')) > 0 ? 'Tersedia' : 'Habis',
         stock: Number(formData.get('stock')),
         description: formData.get('description') as string,
-        image: resData.image_url ? `http://${window.location.hostname}:5000${resData.image_url}` : editingItem.image,
+        image: resData.image_url ? `${window.location.origin}${resData.image_url}` : editingItem.image,
         availability_type: (formData.get('availability_type') as string) || 'permanent',
         available_from: (formData.get('available_from') as string) || undefined,
         available_to: (formData.get('available_to') as string) || undefined,
@@ -431,7 +431,7 @@ export function ManageMenu({ menuItems, setMenuItems, stockItems, searchTerm = '
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-lg bg-stone-100 overflow-hidden flex-shrink-0">
                         <img 
-                          src={item.image && item.image.startsWith('/uploads') ? `http://${window.location.hostname}:5000${item.image}` : (item.image || `https://picsum.photos/seed/${item.id}/100/100`)} 
+                          src={item.image && item.image.startsWith('/uploads') ? `${window.location.origin}${item.image}` : (item.image || `https://picsum.photos/seed/${item.id}/100/100`)} 
                           alt={item.name}
                           className="w-full h-full object-cover"
                           referrerPolicy="no-referrer"
