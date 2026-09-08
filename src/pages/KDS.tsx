@@ -246,22 +246,10 @@ export function KDS({ orders, setOrders, onUpdateStatus }: KDSProps) {
                         #{order.id.slice(-4)}
                       </Badge>
                     </div>
+                    </div>
                     <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-stone-500 font-medium">
                       <Clock size={12} className="opacity-80" />
                       <span>{order.time}</span>
-                      {isCooking ? (
-                        <span className="ml-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-semibold">
-                          <Flame size={10} className="animate-pulse" />
-                          Masak: {getCookingDuration(order.cookingStartedAt)}
-                        </span>
-                      ) : (
-                        <span className={cn(
-                          "ml-2 px-2 py-0.5 rounded-full font-semibold",
-                          isCritical ? 'bg-red-100 text-red-750' : 'bg-stone-100 text-stone-600'
-                        )}>
-                          Tunggu: {getTimeElapsed(order.createdAt || order.time)}
-                        </span>
-                      )}
                     </div>
                   </div>
                   <ChefHat size={20} className={cn(
