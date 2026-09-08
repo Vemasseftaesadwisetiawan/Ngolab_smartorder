@@ -517,7 +517,7 @@ function mapDbStatusToFrontend(dbStatus) {
 // Helper to map Frontend status to DB status
 function mapFrontendStatusToDb(feStatus) {
   if (feStatus === 'Sedang Disiapkan') return 'Diproses';
-  if (feStatus === 'Selesai') return 'Selesai';
+  if (feStatus === 'Selesai') return 'Siap'; // konsisten dengan mapDbStatusToFrontend
   return feStatus || 'Menunggu';
 }
 
@@ -759,7 +759,7 @@ app.put('/api/orders/:id/payment-proof/status', authenticateToken, (req, res) =>
     if (err) return res.status(500).json({ error: 'Gagal memperbarui status verifikasi' });
     
     if (status === 'approved') {
-      db.query('UPDATE orders SET status="Selesai" WHERE id=?', [orderId], (err2) => {
+      db.query('UPDATE orders SET status="Siap", cooking_started_at=COALESCE(cooking_started_at, NOW()) WHERE id=?', [orderId], (err2) => {
         if (err2) console.error('Gagal update status pesanan:', err2.message);
       });
     }
