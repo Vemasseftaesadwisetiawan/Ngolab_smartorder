@@ -68,9 +68,9 @@ export function TableManagement() {
   // ── Helper: buat link smart tag dinamis ──
   const getDynamicSmartLink = (t: { number: string; zone?: string } | null) => {
     if (!t) return '';
-    const hostname = window.location.hostname;
+    const base = window.location.origin;
     const zoneQuery = t.zone ? `&zona=${encodeURIComponent(t.zone)}` : '';
-    return `http://${hostname}:3001/?meja=${encodeURIComponent(t.number)}${zoneQuery}`;
+    return `${base}/?meja=${encodeURIComponent(t.number)}${zoneQuery}`;
   };
 
   // ── Ambil data smart tags dari API ──
@@ -259,7 +259,6 @@ export function TableManagement() {
     }
   };
 
-  // ── Ubah Status Meja ──
   const handleUpdateTableStatus = async (id: string, newStatus: 'Available' | 'Occupied' | 'Reserved') => {
     const dbStatus = newStatus === 'Available' ? 'Tersedia' : newStatus === 'Occupied' ? 'Terisi' : 'Reservasi';
     try {
@@ -271,6 +270,19 @@ export function TableManagement() {
 
       setTables(prev => prev.map(t => t.id === id ? { ...t, status: newStatus } : t));
       toast.success(`Status meja diubah menjadi ${newStatus === 'Available' ? 'Tersedia' : newStatus === 'Occupied' ? 'Terisi' : 'Reservasi'}`);
+
+      // re-fetch agar sinkron dengan server
+      const res = await apiFetch('/api/smart-tags');
+      const data = await res.json();
+      if (!data.error) {
+        const mappedData = data.map((t: any) => {
+          const type = t.type === 'Meja' || t.type === 'Table' ? 'Table' : 'Spot';
+          const status = t.status === 'Tersedia' || t.status === 'Available' ? 'Available' :
+                         t.status === 'Terisi' || t.status === 'Occupied' ? 'Occupied' : 'Reserved';
+          return { ...t, type, status };
+        });
+        setTables(mappedData);
+      }
     } catch (err) {
       toast.error('Gagal mengubah status meja di server');
     }
@@ -334,6 +346,7 @@ export function TableManagement() {
             <option value="Available">Tersedia</option>
             <option value="Occupied">Terisi</option>
             <option value="Reserved">Dipesan</option>
+            <option value="Inactive">Nonaktif</option>
           </select>
         </div>
       </div>
@@ -397,6 +410,9 @@ export function TableManagement() {
                   <DropdownMenuItem className="gap-2" onClick={() => handleUpdateTableStatus(table.id, 'Reserved')}>
                     Set Status: Reservasi
                   </DropdownMenuItem>
+                  <DropdownMenuItem className="gap-2" onClick={() => handleUpdateTableStatus(table.id, 'Inactive')}>
+                    Set Status: Nonaktif
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem className="gap-2" onClick={() => window.open(getDynamicSmartLink(table), '_blank')}>
                     <ExternalLink size={16} /> Test Pelacakan Lokasi
@@ -419,8 +435,8 @@ export function TableManagement() {
                         "bg-neutral-100 text-neutral-600"
                   )}
                 >
-                  {table.type === 'Spot' ? 'Titik Layanan Active' :
-                    (table.status === 'Available' ? 'Tersedia' : table.status === 'Occupied' ? 'Terisi' : 'Dipesan')}
+                  {table.type === 'Spot' ? 'Titik Layanan Active' : 
+                    (table.status === 'Available' ? 'Tersedia' : table.status === 'Occupied' ? 'Terisi' : table.status === 'Reserved' ? 'Dipesan' : 'Nonaktif')}
                 </Badge>
                 {table.lastScanned && (
                   <div className="text-[10px] text-neutral-400 font-medium italic">Scan: {table.lastScanned}</div>

@@ -25,21 +25,11 @@ interface HeaderProps {
 
 export function Header({ title, searchTerm, setSearchTerm, userRole }: HeaderProps) {
   const getUserName = () => {
-    switch(userRole) {
-      case 'Admin': return 'Admin Yanto';
-      case 'Kasir': return 'Kasir';
-      case 'Koki': return 'Koki';
-      default: return 'Pengguna';
-    }
+    return userRole || 'Pengguna';
   };
 
   const getUserSub = () => {
-    switch(userRole) {
-      case 'Admin': return 'Owner';
-      case 'Kasir': return 'Kasir';
-      case 'Koki': return 'Koki';
-      default: return 'Staf';
-    }
+    return '';
   };
 
   return (

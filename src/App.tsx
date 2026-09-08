@@ -26,6 +26,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
 import { playNotificationChime } from '@/lib/utils';
 import { apiFetch, clearAuthToken, getApiBaseUrl } from '@/lib/apiFetch';
+import { CustomerView } from '@/pages/CustomerView';
 
 // Initial Data
 // Data menu awal sekarang kosong karena langsung mengambil dari Database MySQL
@@ -230,8 +231,7 @@ export default function App() {
           order.id === orderId 
             ? { 
                 ...order, 
-                status: newStatus, 
-                cookingStartedAt: newStatus === 'Sedang Disiapkan' ? new Date().toISOString() : undefined 
+                status: newStatus,
               }
             : order
         );
@@ -424,7 +424,7 @@ function MainContent({
     case 'manage-menu': 
       return canAccess(['Admin']) ? <ManageMenu menuItems={menuItems} setMenuItems={setMenuItems} stockItems={stockItems} searchTerm={searchTerm} /> : <MenuCatalog menuItems={menuItems} setMenuItems={setMenuItems} searchTerm={searchTerm} userRole={userRole} />;
     case 'recipe':
-      return canAccess(['Admin']) ? <RecipeManagement menuItems={menuItems} setMenuItems={setMenuItems} stockItems={stockItems} searchTerm={searchTerm} refreshMenu={refreshMenu} /> : <div className="text-center py-20 text-stone-500">Anda tidak memiliki akses ke halaman ini.</div>;
+      return canAccess(['Admin', 'Koki']) ? <RecipeManagement menuItems={menuItems} setMenuItems={setMenuItems} stockItems={stockItems} searchTerm={searchTerm} refreshMenu={refreshMenu} /> : <div className="text-center py-20 text-stone-500">Anda tidak memiliki akses ke halaman ini.</div>;
     case 'manage-tables':
       return canAccess(['Admin']) ? <TableManagement /> : <div className="text-center py-20 text-stone-500">Anda tidak memiliki akses ke halaman ini.</div>;
     case 'stock': 

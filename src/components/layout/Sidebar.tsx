@@ -39,7 +39,7 @@ const navItems = [
   { id: 'kds', label: 'Kitchen System (KDS)', icon: ChefHat, roles: ['Admin', 'Koki'] },
   { id: 'menu-catalog', label: 'Katalog Menu', icon: BookOpen, roles: ['Admin', 'Kasir', 'Koki'] },
   { id: 'manage-menu', label: 'Kelola Menu', icon: UtensilsCrossed, roles: ['Admin'] },
-  { id: 'recipe', label: 'Kelola Resep', icon: CookingPot, roles: ['Admin'] },
+  { id: 'recipe', label: 'Kelola Resep', icon: CookingPot, roles: ['Admin', 'Koki'] },
   { id: 'manage-tables', label: 'Smart Tag / Meja', icon: QrCode, roles: ['Admin'] },
   { id: 'stock', label: 'Stok Bahan', icon: Package, roles: ['Admin', 'Kasir', 'Koki'] },
   { id: 'history', label: 'Histori Transaksi', icon: History, roles: ['Admin', 'Kasir', 'Koki'] },

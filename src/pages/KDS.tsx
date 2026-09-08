@@ -78,8 +78,9 @@ export function KDS({ orders, setOrders, onUpdateStatus }: KDSProps) {
   const getCookingDuration = (startedAt?: string) => {
     if (!startedAt) return '0m 0s';
     const start = new Date(startedAt);
+    if (isNaN(start.getTime())) return '0m 0s';
     const diffInSeconds = Math.floor((currentTime.getTime() - start.getTime()) / 1000);
-    
+
     if (diffInSeconds < 0) return '0m 0s';
     
     const mins = Math.floor(diffInSeconds / 60);

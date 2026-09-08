@@ -553,7 +553,7 @@ app.get('/api/orders', authenticateToken, (req, res) => {
           type: order.order_type,
           time: new Date(order.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
           date: new Date(order.created_at).toLocaleDateString('id-ID'),
-          cookingStartedAt: order.updated_at,
+          cookingStartedAt: order.cooking_started_at,
           paymentProofUrl: order.payment_proof_url ? `${req.protocol}://${req.get('host')}${order.payment_proof_url}` : null,
           paymentProofStatus: order.payment_proof_status || 'pending',
           items: orderItems
@@ -719,11 +719,18 @@ app.put('/api/orders/:id/status', authenticateToken, (req, res) => {
   const orderId = req.params.id;
   const { status } = req.body;
   const dbStatus = mapFrontendStatusToDb(status);
-  
-  db.query('UPDATE orders SET status=? WHERE id=?', [dbStatus, orderId], (err, result) => {
-    if (err) return res.status(500).json({ error: 'Gagal update status pesanan' });
-    res.json({ message: 'Status berhasil diubah', id: orderId, newStatus: status });
-  });
+
+  if (dbStatus === 'Diproses') {
+    db.query('UPDATE orders SET status=?, cooking_started_at=NOW() WHERE id=?', [dbStatus, orderId], (err, result) => {
+      if (err) return res.status(500).json({ error: 'Gagal update status pesanan' });
+      res.json({ message: 'Status berhasil diubah', id: orderId, newStatus: status });
+    });
+  } else {
+    db.query('UPDATE orders SET status=? WHERE id=?', [dbStatus, orderId], (err, result) => {
+      if (err) return res.status(500).json({ error: 'Gagal update status pesanan' });
+      res.json({ message: 'Status berhasil diubah', id: orderId, newStatus: status });
+    });
+  }
 });
 
 // 3b. POST (Upload bukti pembayaran)
@@ -810,7 +817,7 @@ app.get('/api/users/:id/orders', authenticateToken, (req, res) => {
           type: order.order_type,
           time: new Date(order.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
           date: new Date(order.created_at).toLocaleDateString('id-ID'),
-          cookingStartedAt: order.updated_at,
+          cookingStartedAt: order.cooking_started_at,
           paymentProofUrl: order.payment_proof_url ? `${req.protocol}://${req.get('host')}${order.payment_proof_url}` : null,
           paymentProofStatus: order.payment_proof_status || 'pending',
           items: orderItems
@@ -826,7 +833,7 @@ app.get('/api/users/:id/orders', authenticateToken, (req, res) => {
 // API ROUTES UNTUK SMART TAGS (MEJA)
 // ==========================================
 
-app.get('/api/smart-tags', authenticateToken, (req, res) => {
+app.get('/api/public/smart-tags', (req, res) => {
   db.query('SELECT * FROM smart_tags ORDER BY created_at DESC', (err, results) => {
     if (err) return res.status(500).json({ error: 'Gagal mengambil data smart tags' });
     const mapped = results.map(row => ({
@@ -843,13 +850,20 @@ app.get('/api/smart-tags', authenticateToken, (req, res) => {
   });
 });
 
-app.post('/api/smart-tags', authenticateToken, (req, res) => {
-  const { id, type, number, capacity, zone, status, smartLink } = req.body;
-  const query = 'INSERT INTO smart_tags (id, tag_type, label_number, capacity, zone, status, smart_link) VALUES (?, ?, ?, ?, ?, ?, ?)';
-  
-  db.query(query, [id, type, number, capacity || null, zone, status, smartLink], (err, result) => {
-    if (err) return res.status(500).json({ error: 'Gagal menyimpan smart tag', details: err });
-    res.json({ message: 'Smart Tag berhasil dibuat', id });
+app.get('/api/smart-tags', authenticateToken, (req, res) => {
+  db.query('SELECT * FROM smart_tags ORDER BY created_at DESC', (err, results) => {
+    if (err) return res.status(500).json({ error: 'Gagal mengambil data smart tags' });
+    const mapped = results.map(row => ({
+      id: row.id,
+      type: row.tag_type,
+      number: row.label_number,
+      capacity: row.capacity,
+      zone: row.zone,
+      status: row.status,
+      smartLink: row.smart_link,
+      lastScanned: row.last_scanned
+    }));
+    res.json(mapped);
   });
 });
 
@@ -1555,9 +1569,9 @@ app.post('/api/users/:id/points', authenticateToken, (req, res) => {
 });
 
 // Serve static frontend build
-app.use(express.static(path.join(__dirname, 'dist')));
+app.use(express.static(path.join(__dirname, 'NGOLAB', 'dist')));
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  res.sendFile(path.join(__dirname, 'NGOLAB', 'dist', 'index.html'));
 });
 
 app.listen(port, () => {
