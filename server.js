@@ -36,7 +36,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ 
   storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // batas awal 10MB, lalu dikompres otomatis
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
     if (allowed.includes(file.mimetype)) cb(null, true);
@@ -44,7 +44,6 @@ const upload = multer({
   }
 });
 
-// Middleware Kompresi & Konversi Gambar ke Format WebP (Max 1200px, quality 75)
 const compressImage = async (req, res, next) => {
   if (!req.file) return next();
 
@@ -62,7 +61,6 @@ const compressImage = async (req, res, next) => {
       .webp({ quality: 75 })
       .toFile(newPath);
 
-    // Hapus file mentah asli jika bukan file webp baru
     if (fs.existsSync(originalPath) && originalPath !== newPath) {
       fs.unlinkSync(originalPath);
     }
@@ -87,7 +85,6 @@ app.use(cors({
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Rate Limiter untuk percobaan login (maksimal 20 request per 15 menit)
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
@@ -96,7 +93,6 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Middleware Autentikasi JWT
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -136,12 +132,10 @@ db.getConnection((err, conn) => {
   conn.release();
 });
 
-
 // ==========================================
 // API ROUTES UNTUK STOK & MENU
 // ==========================================
 
-// 0. Ambil daftar stok bahan baku
 app.get('/api/stock', authenticateToken, (req, res) => {
   db.query('SELECT * FROM stock_items', (err, results) => {
     if (err) return res.status(500).json({ error: 'Gagal mengambil data stok' });
@@ -154,7 +148,6 @@ app.get('/api/stock', authenticateToken, (req, res) => {
       else if (qty <= min / 2) status = 'Kritis';
       else if (qty <= min) status = 'Menipis';
 
-      // Cek kadaluarsa jika ada tanggalnya
       if (row.expiry_date) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -194,7 +187,6 @@ app.get('/api/stock', authenticateToken, (req, res) => {
   });
 });
 
-// 0a. Tambah stok bahan baku baru
 app.post('/api/stock', authenticateToken, (req, res) => {
   const { name, qty, unit, min, expiry_date } = req.body;
   const qtyNum = Number(qty) || 0;
@@ -216,7 +208,6 @@ app.post('/api/stock', authenticateToken, (req, res) => {
   });
 });
 
-// 0b. Edit stok bahan baku
 app.put('/api/stock/:id', authenticateToken, (req, res) => {
   const { id } = req.params;
   const { name, qty, unit, min, expiry_date } = req.body;
@@ -255,7 +246,6 @@ app.put('/api/stock/:id', authenticateToken, (req, res) => {
   });
 });
 
-// 0c. Sesuaikan jumlah stok (plus/minus)
 app.put('/api/stock/:id/adjust', authenticateToken, (req, res) => {
   const { id } = req.params;
   const { amount } = req.body;
@@ -285,7 +275,6 @@ app.put('/api/stock/:id/adjust', authenticateToken, (req, res) => {
   });
 });
 
-// 0d. Hapus stok bahan baku
 app.delete('/api/stock/:id', authenticateToken, (req, res) => {
   const { id } = req.params;
   db.query('DELETE FROM stock_items WHERE id=?', [id], (err, result) => {
@@ -297,10 +286,8 @@ app.delete('/api/stock/:id', authenticateToken, (req, res) => {
   });
 });
 
-
 const FRIEND_API_URL = process.env.FRIEND_API_URL || 'http://localhost:3001/api/menu';
 
-// 1. READ (Menggabungkan menu lokal dari database Anda dan menu eksternal dari server teman)
 app.get('/api/menu', (req, res) => {
   const today = new Date().toISOString().split('T')[0];
   const queryMenu = `SELECT * FROM menu_items WHERE displayed = 1 AND (availability_type = 'permanent' OR (availability_type = 'scheduled' AND available_from <= ? AND available_to >= ?)) ORDER BY created_at DESC`;
@@ -327,23 +314,20 @@ app.get('/api/menu', (req, res) => {
         };
       });
 
-      // Cek header untuk mencegah loop tak terbatas jika dijalankan di laptop yang sama
       if (req.headers['x-loop-prevent'] === 'true') {
         console.log('🔄 Loop terdeteksi. Melewati penarikan menu eksternal.');
         return res.json(localMenus);
       }
 
-      // Tarik menu eksternal dari laptop teman
       fetch(FRIEND_API_URL)
         .then(async (response) => {
           if (!response.ok) throw new Error('Response server teman tidak OK');
           const externalData = await response.json();
           
-          // Gabungkan ID eksternal agar unik dan tidak tabrakan dengan ID lokal Anda
           const externalMenus = externalData.map((item) => ({
             ...item,
             id: `ext-${item.id}`,
-            name: item.name, // Tanpa label eksternal di UI
+            name: item.name,
             isExternal: true
           }));
 
@@ -358,7 +342,6 @@ app.get('/api/menu', (req, res) => {
   });
 });
 
-// 2. CREATE (Tambah menu baru + Simpan Resep)
 app.post('/api/menu', authenticateToken, upload.single('image'), compressImage, (req, res) => {
   const { name, category, price, description, stock, availability_type, available_from, available_to } = req.body;
   const status = Number(stock) > 0 ? 'Tersedia' : 'Habis';
@@ -377,7 +360,6 @@ app.post('/api/menu', authenticateToken, upload.single('image'), compressImage, 
     
     const newMenuId = result.insertId;
     
-    // Simpan resep ke tabel menu_recipes secara masal
     if (ingredients.length > 0) {
       const recipeValues = ingredients.map(ing => [newMenuId, ing.stockId, ing.amount]);
       db.query('INSERT INTO menu_recipes (menu_id, stock_id, amount) VALUES ?', [recipeValues], (err2) => {
@@ -389,7 +371,6 @@ app.post('/api/menu', authenticateToken, upload.single('image'), compressImage, 
   });
 });
 
-// 3. UPDATE (Edit menu + Update Resep jika dikirimkan)
 app.put('/api/menu/:id', authenticateToken, upload.single('image'), compressImage, (req, res) => {
   const id = req.params.id;
   const { name, category, price, description, stock, availability_type, available_from, available_to } = req.body;
@@ -418,7 +399,6 @@ app.put('/api/menu/:id', authenticateToken, upload.single('image'), compressImag
   db.query(query, params, (err, result) => {
     if (err) return res.status(500).json({ error: 'Gagal update menu', details: err });
     
-    // Hanya update resep jika dikirimkan oleh frontend
     if (hasIngredients) {
       db.query('DELETE FROM menu_recipes WHERE menu_id=?', [id], (err2) => {
         if (ingredients.length > 0) {
@@ -436,7 +416,6 @@ app.put('/api/menu/:id', authenticateToken, upload.single('image'), compressImag
   });
 });
 
-// 3a. PUT (Update Resep khusus menu)
 app.put('/api/menu/:id/recipe', authenticateToken, (req, res) => {
   const { id } = req.params;
   const { ingredients } = req.body;
@@ -466,18 +445,15 @@ app.put('/api/menu/:id/recipe', authenticateToken, (req, res) => {
   });
 });
 
-// 4. DELETE
 app.delete('/api/menu/:id', authenticateToken, (req, res) => {
   const id = req.params.id;
   const query = 'DELETE FROM menu_items WHERE id=?';
-  // menu_recipes otomatis terhapus karena kita menggunakan ON DELETE CASCADE di database
   db.query(query, [id], (err, result) => {
     if (err) return res.status(500).json({ error: 'Gagal menghapus menu', details: err });
     res.json({ message: 'Menu berhasil dihapus' });
   });
 });
 
-// 5. TOGGLE DISPLAY (Sembunyikan / Tampilkan Menu)
 app.put('/api/menu/:id/display', authenticateToken, (req, res) => {
   const id = req.params.id;
   const { displayed } = req.body;
@@ -488,10 +464,9 @@ app.put('/api/menu/:id/display', authenticateToken, (req, res) => {
   });
 });
 
-// 5a. UPDATE PROMO PRICE (Atur Harga Promo Menu)
 app.put('/api/menu/:id/promo', authenticateToken, (req, res) => {
   const id = req.params.id;
-  const { promoPrice } = req.body; // Bisa berisi angka atau null
+  const { promoPrice } = req.body;
   
   db.query('UPDATE menu_items SET promo_price=? WHERE id=?', [promoPrice === null || promoPrice === undefined ? null : promoPrice, id], (err, result) => {
     if (err) {
@@ -506,18 +481,15 @@ app.put('/api/menu/:id/promo', authenticateToken, (req, res) => {
 // API ROUTES UNTUK TRANSAKSI (ORDERS)
 // ==========================================
 
-// 1. GET (Ambil semua pesanan beserta item-nya)
-// Helper to map DB status to Frontend status
 function mapDbStatusToFrontend(dbStatus) {
   if (dbStatus === 'Diproses') return 'Sedang Disiapkan';
   if (dbStatus === 'Siap') return 'Selesai';
   return dbStatus || 'Menunggu';
 }
 
-// Helper to map Frontend status to DB status
 function mapFrontendStatusToDb(feStatus) {
   if (feStatus === 'Sedang Disiapkan') return 'Diproses';
-  if (feStatus === 'Selesai') return 'Siap'; // konsisten dengan mapDbStatusToFrontend
+  if (feStatus === 'Selesai') return 'Siap';
   return feStatus || 'Menunggu';
 }
 
@@ -532,7 +504,6 @@ app.get('/api/orders', authenticateToken, (req, res) => {
       if (err) return res.status(500).json({ error: 'Gagal mengambil rincian pesanan' });
       
       const finalOrders = orders.map(order => {
-        // Gabungkan item yang sesuai dengan order_id
         const orderItems = items.filter(item => item.order_id === order.id).map(i => ({
           id: i.menu_id,
           name: i.menu_name,
@@ -554,8 +525,8 @@ app.get('/api/orders', authenticateToken, (req, res) => {
           time: new Date(order.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
           date: new Date(order.created_at).toLocaleDateString('id-ID'),
           cookingStartedAt: order.cooking_started_at,
-          paymentProofUrl: order.payment_proof_url ? `${req.protocol}://${req.get('host')}${order.payment_proof_url}` : null,
-          paymentProofStatus: order.payment_proof_status || 'pending',
+          paymentProofUrl: order.payment_proof ? `${req.protocol}://${req.get('host')}${order.payment_proof}` : null,
+          paymentProofStatus: order.payment_status || 'pending',
           items: orderItems
         };
       });
@@ -565,10 +536,9 @@ app.get('/api/orders', authenticateToken, (req, res) => {
   });
 });
 
-// 2. POST (Buat pesanan baru dari POS atau Aplikasi Konsumen)
 const handleCreateOrder = (req, res) => {
   const { id, table, customer, items, total, paymentMethod, amountPaid, change, type, promoCode, userId } = req.body;
-  const status = 'Menunggu'; // Status awal pesanan
+  const status = 'Menunggu';
 
   let validOrderType = 'Dine-In';
   if (type === 'Takeaway' || type === 'Take Away' || type === 'POS') {
@@ -584,13 +554,11 @@ const handleCreateOrder = (req, res) => {
   db.query(queryOrder, [id, table, customer, total, status, paymentMethod, amountPaid, change, validOrderType, userId || null], (err, result) => {
     if (err) return res.status(500).json({ error: 'Gagal menyimpan pesanan', details: err });
     
-    // Simpan rincian makanan ke order_items
     if (items && items.length > 0) {
       const itemValues = items.map(item => [id, item.id, item.name, item.price, item.quantity, item.note || '']);
       db.query('INSERT INTO order_items (order_id, menu_id, menu_name, price, quantity, note) VALUES ?', [itemValues], (err2) => {
         if (err2) console.error("Gagal menyimpan rincian pesanan:", err2);
         
-        // UPDATE USAGE COUNT FOR PROMO CODE IF PASSED
         if (promoCode) {
           db.query('UPDATE promos SET usage_count = usage_count + 1 WHERE code = ?', [promoCode], (errPromo) => {
             if (errPromo) console.error("Gagal memperbarui kuota penggunaan promo:", errPromo.message);
@@ -598,22 +566,17 @@ const handleCreateOrder = (req, res) => {
           });
         }
         
-        // LOGIKA PEMOTONGAN STOK (MENU & BAHAN BAKU)
         items.forEach(orderItem => {
-          // Hanya potong stok jika ID-nya lokal (bukan diawali dengan 'ext-')
           if (orderItem.id && !String(orderItem.id).startsWith('ext-')) {
             db.query('UPDATE menu_items SET stock = GREATEST(0, stock - ?), status = CASE WHEN GREATEST(0, stock - ?) <= 0 THEN \'Habis\' ELSE status END WHERE id = ?', [orderItem.quantity, orderItem.quantity, orderItem.id]);
             
-            // Ambil semua resep menu beserta nama bahan bakunya
             db.query('SELECT r.stock_id, r.amount, s.name FROM menu_recipes r JOIN stock_items s ON r.stock_id = s.id WHERE r.menu_id = ?', [orderItem.id], (err3, recipes) => {
               if (!err3 && recipes.length > 0) {
                 recipes.forEach(recipe => {
                   const totalUsed = recipe.amount * orderItem.quantity;
                   
-                  // Ambil semua batch bahan baku dengan nama yang sama untuk pengurutan FEFO (yang cepat kadaluarsa dulu)
                   db.query('SELECT id, qty, min_stock, expiry_date FROM stock_items WHERE name = ? ORDER BY (expiry_date IS NULL) ASC, expiry_date ASC, id ASC', [recipe.name], (errBatches, batches) => {
                     if (errBatches || batches.length === 0) {
-                      // Fallback ke stock_id spesifik jika tidak ketemu baris lain dengan nama yang sama
                       console.warn(`⚠️ Batch pengurutan FEFO tidak ditemukan untuk ${recipe.name}, fallback ke stock_id.`);
                       const updateStockQuery = 'UPDATE stock_items SET qty = GREATEST(0, qty - ?), status = CASE WHEN GREATEST(0, qty - ?) <= 0 THEN \'Habis\' ELSE status END WHERE id = ?';
                       db.query(updateStockQuery, [totalUsed, totalUsed, recipe.stock_id]);
@@ -621,11 +584,7 @@ const handleCreateOrder = (req, res) => {
                     }
                     
                     let remainingNeed = totalUsed;
-                    
-                    // Filter batch yang memiliki stok > 0 terlebih dahulu
                     const activeBatches = batches.filter(b => Number(b.qty) > 0);
-                    
-                    // Jika tidak ada batch yang tersisa dengan stok > 0, gunakan seluruh batch agar terpotong dari batch terakhir
                     const targetBatches = activeBatches.length > 0 ? activeBatches : batches;
                     
                     for (let i = 0; i < targetBatches.length; i++) {
@@ -634,7 +593,6 @@ const handleCreateOrder = (req, res) => {
                       
                       let deductAmount = Math.min(currentQty, remainingNeed);
                       
-                      // Jika ini adalah batch terakhir dan kebutuhan masih tersisa, potong semuanya (maksimal ke 0)
                       if (i === targetBatches.length - 1 && remainingNeed > 0) {
                         deductAmount = remainingNeed;
                       }
@@ -642,14 +600,12 @@ const handleCreateOrder = (req, res) => {
                       const newQty = Math.max(0, currentQty - deductAmount);
                       remainingNeed -= deductAmount;
                       
-                      // Hitung status baru
                       const minStock = Number(batch.min_stock) || 0;
                       let newStatus = 'Aman';
                       if (newQty <= 0) newStatus = 'Habis';
                       else if (newQty <= minStock / 2) newStatus = 'Kritis';
                       else if (newQty <= minStock) newStatus = 'Menipis';
                       
-                      // Cek kadaluarsa dinamis
                       if (batch.expiry_date) {
                         const today = new Date();
                         today.setHours(0, 0, 0, 0);
@@ -681,7 +637,6 @@ const handleCreateOrder = (req, res) => {
       });
     }
 
-    // LOGIKA PENAMBAHAN POIN TRANSAKSI
     if (userId) {
       db.query('SELECT earning_rate, min_purchase FROM point_settings WHERE id = 1', (errSettings, settingsResults) => {
         if (!errSettings && settingsResults.length > 0) {
@@ -714,7 +669,6 @@ const handleCreateOrder = (req, res) => {
 app.post('/api/orders', handleCreateOrder);
 app.post('/api/order', handleCreateOrder);
 
-// 3. PUT (Update status pesanan - untuk KDS/Pelayan)
 app.put('/api/orders/:id/status', authenticateToken, (req, res) => {
   const orderId = req.params.id;
   const { status } = req.body;
@@ -733,20 +687,18 @@ app.put('/api/orders/:id/status', authenticateToken, (req, res) => {
   }
 });
 
-// 3b. POST (Upload bukti pembayaran)
 app.post('/api/orders/:id/payment-proof', upload.single('paymentProof'), compressImage, (req, res) => {
   const orderId = req.params.id;
   if (!req.file) return res.status(400).json({ error: 'File bukti pembayaran wajib diupload' });
   
   const paymentProofUrl = `/uploads/${req.file.filename}`;
   
-  db.query('UPDATE orders SET payment_proof_url=?, payment_proof_status="pending" WHERE id=?', [paymentProofUrl, orderId], (err, result) => {
+  db.query('UPDATE orders SET payment_proof=?, payment_status="pending" WHERE id=?', [paymentProofUrl, orderId], (err, result) => {
     if (err) return res.status(500).json({ error: 'Gagal menyimpan bukti pembayaran', details: err.message });
     res.json({ message: 'Bukti pembayaran berhasil dikirim dan menunggu verifikasi', paymentProofUrl });
   });
 });
 
-// 3c. PUT (Verifikasi bukti pembayaran)
 app.put('/api/orders/:id/payment-proof/status', authenticateToken, (req, res) => {
   const orderId = req.params.id;
   const { status } = req.body;
@@ -755,7 +707,7 @@ app.put('/api/orders/:id/payment-proof/status', authenticateToken, (req, res) =>
     return res.status(400).json({ error: 'Status harus "approved" atau "rejected"' });
   }
   
-  db.query('UPDATE orders SET payment_proof_status=? WHERE id=?', [status, orderId], (err, result) => {
+  db.query('UPDATE orders SET payment_status=? WHERE id=?', [status, orderId], (err, result) => {
     if (err) return res.status(500).json({ error: 'Gagal memperbarui status verifikasi' });
     
     if (status === 'approved') {
@@ -768,7 +720,6 @@ app.put('/api/orders/:id/payment-proof/status', authenticateToken, (req, res) =>
   });
 });
 
-// 4. GET (Ambil status spesifik satu pesanan untuk notifikasi real-time aplikasi konsumen)
 const handleGetOrderStatus = (req, res) => {
   const orderId = req.params.id;
   db.query('SELECT status FROM orders WHERE id = ?', [orderId], (err, results) => {
@@ -784,7 +735,6 @@ const handleGetOrderStatus = (req, res) => {
 app.get('/api/orders/:id', handleGetOrderStatus);
 app.get('/api/order/:id', handleGetOrderStatus);
 
-// 4a. GET (Ambil riwayat pesanan spesifik satu user)
 app.get('/api/users/:id/orders', authenticateToken, (req, res) => {
   const userId = req.params.id;
   const queryOrders = 'SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC';
@@ -818,8 +768,8 @@ app.get('/api/users/:id/orders', authenticateToken, (req, res) => {
           time: new Date(order.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
           date: new Date(order.created_at).toLocaleDateString('id-ID'),
           cookingStartedAt: order.cooking_started_at,
-          paymentProofUrl: order.payment_proof_url ? `${req.protocol}://${req.get('host')}${order.payment_proof_url}` : null,
-          paymentProofStatus: order.payment_proof_status || 'pending',
+          paymentProofUrl: order.payment_proof ? `${req.protocol}://${req.get('host')}${order.payment_proof}` : null,
+          paymentProofStatus: order.payment_status || 'pending',
           items: orderItems
         };
       });
@@ -925,7 +875,7 @@ app.get('/api/ratings', (req, res) => {
       return {
         id: row.id,
         customerName: row.customer_name,
-        rating: row.rating_value, // Diubah dari row.rating
+        rating: row.rating_value,
         comment: row.comment,
         date: new Date(row.created_at).toLocaleDateString('id-ID'),
         status: mappedStatus,
@@ -943,7 +893,6 @@ app.post('/api/ratings', (req, res) => {
   const { customerName, rating, comment, orderId, menuId } = req.body;
   const status = 'Pending'; 
 
-  // Cek apakah menu eksternal dari rekan
   if (menuId && String(menuId).startsWith('ext-')) {
     const originalMenuId = String(menuId).replace('ext-', '');
     const friendBaseUrl = FRIEND_API_URL.replace('/api/menu', '');
@@ -979,7 +928,6 @@ app.post('/api/ratings', (req, res) => {
     return;
   }
 
-  // Jika menu lokal, simpan ke database MySQL lokal kita
   const query = 'INSERT INTO ratings (customer_name, rating_value, comment, status, order_id, menu_id) VALUES (?, ?, ?, ?, ?, ?)';
   db.query(query, [customerName, rating, comment, status, orderId || null, menuId || null], (err, result) => {
     if (err) return res.status(500).json({ error: 'Gagal mengirim rating', details: err });
@@ -1021,7 +969,6 @@ app.delete('/api/ratings/:id', authenticateToken, (req, res) => {
 // API ROUTES UNTUK USERS & AUTHENTICATION
 // ==========================================
 
-// 1. Endpoint Login (dengan Rate Limiter & Bcrypt)
 app.post('/api/login', loginLimiter, (req, res) => {
   const { email, emailNim, password } = req.body;
   const loginIdentifier = email || emailNim;
@@ -1030,7 +977,6 @@ app.post('/api/login', loginLimiter, (req, res) => {
     return res.status(400).json({ success: false, message: 'Email/NIM dan password harus diisi' });
   }
 
-  // Cek apakah tabel users punya kolom nim/identifier lain secara dinamis
   db.query('SHOW COLUMNS FROM users', (err, cols) => {
     if (err) return res.status(500).json({ success: false, message: 'Kesalahan memeriksa skema database' });
     const colNames = cols.map(c => c.Field);
@@ -1059,7 +1005,6 @@ app.post('/api/login', loginLimiter, (req, res) => {
           return res.status(403).json({ success: false, message: 'Akun Anda sedang dinonaktifkan oleh Admin' });
         }
 
-        // Verifikasi password menggunakan bcrypt dengan fallback & auto-upgrade untuk plaintext legacy
         let passwordMatch = false;
         if (user.password) {
           try {
@@ -1068,7 +1013,6 @@ app.post('/api/login', loginLimiter, (req, res) => {
             passwordMatch = false;
           }
 
-          // Dukungan untuk akun lama (plaintext) dan otomatis upgrade ke hash bcrypt
           if (!passwordMatch && password === user.password) {
             passwordMatch = true;
             try {
@@ -1085,14 +1029,12 @@ app.post('/api/login', loginLimiter, (req, res) => {
           return res.status(401).json({ success: false, message: 'Email atau password salah' });
         }
         
-        // Map database role to frontend expected role
         let frontendRole = 'User';
         if (user.role === 'admin') frontendRole = 'Admin';
         else if (user.role === 'kasir') frontendRole = 'Kasir';
         else if (user.role === 'koki') frontendRole = 'Koki';
         else if (user.role === 'user') frontendRole = 'User';
 
-        // Buat JWT Token
         const token = jwt.sign(
           { id: user.id, name: user.name, role: frontendRole, email: user.email },
           JWT_SECRET,
@@ -1120,7 +1062,6 @@ app.post('/api/login', loginLimiter, (req, res) => {
   });
 });
 
-// 2. Endpoint Registrasi (Password di-hash dengan Bcrypt)
 app.post('/api/register', (req, res) => {
   const { name, emailNim, phone, password, role } = req.body;
   
@@ -1132,7 +1073,6 @@ app.post('/api/register', (req, res) => {
     if (err) return res.status(500).json({ success: false, message: 'Kesalahan memeriksa skema database' });
     const colNames = cols.map(c => c.Field);
     
-    // Cek apakah email/NIM sudah terdaftar
     let checkQuery = 'SELECT * FROM users WHERE email = ?';
     const checkParams = [emailNim];
     if (colNames.includes('nim')) {
@@ -1151,15 +1091,13 @@ app.post('/api/register', (req, res) => {
         return res.status(409).json({ success: false, message: 'Email, NIM, atau nomor HP sudah terdaftar' });
       }
       
-      // Map frontend role to database enum role
       let dbRole = 'user';
       if (role === 'Admin' || role === 'admin') dbRole = 'admin';
       else if (role === 'Kasir' || role === 'kasir' || role === 'Staff Operasional') dbRole = 'kasir';
       else if (role === 'Koki' || role === 'koki' || role === 'Staff Dapur') dbRole = 'koki';
       else if (role === 'User' || role === 'user') dbRole = 'user';
-      else if (role === 'Staff' || role === 'Manager') dbRole = 'kasir'; // Fallback for old select choices
+      else if (role === 'Staff' || role === 'Manager') dbRole = 'kasir';
 
-      // Hash password dengan bcrypt
       let hashedPassword = password;
       try {
         hashedPassword = await bcrypt.hash(password, 10);
@@ -1168,15 +1106,12 @@ app.post('/api/register', (req, res) => {
         return res.status(500).json({ success: false, message: 'Gagal mengamankan kata sandi' });
       }
 
-      // Persiapkan query INSERT dinamis
       const fields = ['name', 'password', 'role', 'status'];
       const values = [name, hashedPassword, dbRole, 'Active'];
       
-      // Simpan emailNim ke kolom nim atau email
       if (colNames.includes('nim') && /^\d+$/.test(emailNim)) {
         fields.push('nim');
         values.push(emailNim);
-        // Tetap set email
         fields.push('email');
         values.push(emailNim + '@student.unila.ac.id');
       } else {
@@ -1211,7 +1146,6 @@ app.post('/api/register', (req, res) => {
   });
 });
 
-// 3. Ambil Semua Data User (Untuk Halaman Kelola User - Protected)
 app.get('/api/users', authenticateToken, (req, res) => {
   db.query('SHOW COLUMNS FROM users', (err, cols) => {
     if (err) return res.status(500).json({ error: 'Gagal mengambil skema user' });
@@ -1239,7 +1173,6 @@ app.get('/api/users', authenticateToken, (req, res) => {
   });
 });
 
-// 4. Update User (Protected)
 app.put('/api/users/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
   const { name, email, role, status, password } = req.body;
@@ -1279,7 +1212,6 @@ app.put('/api/users/:id', authenticateToken, async (req, res) => {
   });
 });
 
-// 4a. Update Status User (Protected)
 app.put('/api/users/:id/status', authenticateToken, (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
@@ -1294,7 +1226,6 @@ app.put('/api/users/:id/status', authenticateToken, (req, res) => {
   });
 });
 
-// 5. Hapus User (Protected)
 app.delete('/api/users/:id', authenticateToken, (req, res) => {
   db.query('DELETE FROM users WHERE id = ?', [req.params.id], (err, result) => {
     if (err) return res.status(500).json({ success: false, message: 'Gagal menghapus pengguna' });
@@ -1306,7 +1237,6 @@ app.delete('/api/users/:id', authenticateToken, (req, res) => {
 // API ROUTES UNTUK MANAJEMEN STAFF
 // ==========================================
 
-// 1. Ambil Semua Staff (Protected)
 app.get('/api/staff', authenticateToken, (req, res) => {
   db.query('SELECT *, DATE_FORMAT(join_date, "%Y-%m-%d") as joinDate FROM staff ORDER BY id ASC', (err, results) => {
     if (err) return res.status(500).json({ error: 'Gagal mengambil data staff' });
@@ -1314,7 +1244,6 @@ app.get('/api/staff', authenticateToken, (req, res) => {
   });
 });
 
-// 2. Tambah Staff Baru (Protected)
 app.post('/api/staff', authenticateToken, (req, res) => {
   const { name, email, phone, status, joinDate } = req.body;
   const query = 'INSERT INTO staff (name, email, phone, status, join_date) VALUES (?, ?, ?, ?, ?)';
@@ -1327,7 +1256,6 @@ app.post('/api/staff', authenticateToken, (req, res) => {
   });
 });
 
-// 2a. Update Staff (Protected)
 app.put('/api/staff/:id', authenticateToken, (req, res) => {
   const { name, email, phone, status } = req.body;
   const query = 'UPDATE staff SET name=?, email=?, phone=?, status=? WHERE id=?';
@@ -1337,7 +1265,6 @@ app.put('/api/staff/:id', authenticateToken, (req, res) => {
   });
 });
 
-// 2b. Hapus Staff (Protected)
 app.delete('/api/staff/:id', authenticateToken, (req, res) => {
   db.query('DELETE FROM staff WHERE id=?', [req.params.id], (err, result) => {
     if (err) return res.status(500).json({ error: 'Gagal menghapus staff' });
@@ -1345,7 +1272,6 @@ app.delete('/api/staff/:id', authenticateToken, (req, res) => {
   });
 });
 
-// 3. Ambil Semua Jadwal Jaga (Protected)
 app.get('/api/schedules', authenticateToken, (req, res) => {
   db.query('SELECT * FROM staff_schedules', (err, results) => {
     if (err) return res.status(500).json({ error: 'Gagal mengambil jadwal' });
@@ -1353,7 +1279,6 @@ app.get('/api/schedules', authenticateToken, (req, res) => {
   });
 });
 
-// 4. Tambah Jadwal Jaga Baru (Protected)
 app.post('/api/schedules', authenticateToken, (req, res) => {
   const { staffId, day, shift, startTime, endTime, assignedRole } = req.body;
   const query = 'INSERT INTO staff_schedules (staff_id, day, shift, start_time, end_time, assigned_role) VALUES (?, ?, ?, ?, ?, ?)';
@@ -1363,7 +1288,6 @@ app.post('/api/schedules', authenticateToken, (req, res) => {
   });
 });
 
-// 4a. Hapus Jadwal Jaga (Protected)
 app.delete('/api/schedules/:id', authenticateToken, (req, res) => {
   db.query('DELETE FROM staff_schedules WHERE id=?', [req.params.id], (err, result) => {
     if (err) return res.status(500).json({ error: 'Gagal menghapus jadwal' });
@@ -1375,7 +1299,6 @@ app.delete('/api/schedules/:id', authenticateToken, (req, res) => {
 // API ROUTES UNTUK MANAJEMEN PROMO
 // ==========================================
 
-// 1. Ambil Semua Promo
 app.get('/api/promos', authenticateToken, (req, res) => {
   db.query('SELECT * FROM promos ORDER BY created_at DESC', (err, results) => {
     if (err) {
@@ -1398,7 +1321,6 @@ app.get('/api/promos', authenticateToken, (req, res) => {
   });
 });
 
-// 2. Tambah Promo Baru
 app.post('/api/promos', authenticateToken, (req, res) => {
   const { id, title, code, discount, type, period, status, maxUsage, minPurchase } = req.body;
   const query = 'INSERT INTO promos (id, title, code, discount, type, period, status, usage_count, max_usage, min_purchase) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)';
@@ -1411,7 +1333,6 @@ app.post('/api/promos', authenticateToken, (req, res) => {
   });
 });
 
-// 3. Update Promo
 app.put('/api/promos/:id', authenticateToken, (req, res) => {
   const { title, code, discount, type, period, maxUsage, minPurchase } = req.body;
   const query = 'UPDATE promos SET title=?, code=?, discount=?, type=?, period=?, max_usage=?, min_purchase=? WHERE id=?';
@@ -1424,7 +1345,6 @@ app.put('/api/promos/:id', authenticateToken, (req, res) => {
   });
 });
 
-// 4. Hapus Promo
 app.delete('/api/promos/:id', authenticateToken, (req, res) => {
   db.query('DELETE FROM promos WHERE id=?', [req.params.id], (err, result) => {
     if (err) {
@@ -1439,7 +1359,6 @@ app.delete('/api/promos/:id', authenticateToken, (req, res) => {
 // API ROUTES UNTUK MANAJEMEN POIN & VOUCHER
 // ==========================================
 
-// 1. Ambil aturan poin (earningRate & minPurchase)
 app.get('/api/point-settings', authenticateToken, (req, res) => {
   db.query('SELECT * FROM point_settings WHERE id = 1', (err, results) => {
     if (err || results.length === 0) {
@@ -1452,7 +1371,6 @@ app.get('/api/point-settings', authenticateToken, (req, res) => {
   });
 });
 
-// 2. Update aturan poin
 app.post('/api/point-settings', authenticateToken, (req, res) => {
   const { earningRate, minPurchase } = req.body;
   db.query('UPDATE point_settings SET earning_rate = ?, min_purchase = ? WHERE id = 1', [earningRate, minPurchase], (err) => {
@@ -1464,7 +1382,6 @@ app.post('/api/point-settings', authenticateToken, (req, res) => {
   });
 });
 
-// 3. Ambil katalog hadiah (point rewards)
 app.get('/api/point-rewards', authenticateToken, (req, res) => {
   db.query('SELECT * FROM point_rewards ORDER BY points ASC', (err, results) => {
     if (err) {
@@ -1474,7 +1391,6 @@ app.get('/api/point-rewards', authenticateToken, (req, res) => {
   });
 });
 
-// 4. Tambah hadiah baru ke katalog
 app.post('/api/point-rewards', authenticateToken, (req, res) => {
   const { name, points, description, status } = req.body;
   const pts = Number(points) || 0;
@@ -1490,7 +1406,6 @@ app.post('/api/point-rewards', authenticateToken, (req, res) => {
   });
 });
 
-// 4a. Update hadiah di katalog
 app.put('/api/point-rewards/:id', authenticateToken, (req, res) => {
   const { id } = req.params;
   const { name, points, description, status } = req.body;
@@ -1507,7 +1422,6 @@ app.put('/api/point-rewards/:id', authenticateToken, (req, res) => {
   });
 });
 
-// 5. Hapus hadiah dari katalog
 app.delete('/api/point-rewards/:id', authenticateToken, (req, res) => {
   db.query('DELETE FROM point_rewards WHERE id = ?', [req.params.id], (err) => {
     if (err) {
@@ -1518,7 +1432,6 @@ app.delete('/api/point-rewards/:id', authenticateToken, (req, res) => {
   });
 });
 
-// 6. Ambil riwayat poin pelanggan
 app.get('/api/point-history', authenticateToken, (req, res) => {
   db.query('SELECT * FROM point_history ORDER BY created_at DESC', (err, results) => {
     if (err) {
@@ -1528,7 +1441,6 @@ app.get('/api/point-history', authenticateToken, (req, res) => {
   });
 });
 
-// 7. Ambil poin dari user spesifik
 app.get('/api/users/:id/points', authenticateToken, (req, res) => {
   db.query('SELECT points FROM users WHERE id = ?', [req.params.id], (err, results) => {
     if (err || results.length === 0) {
@@ -1538,7 +1450,6 @@ app.get('/api/users/:id/points', authenticateToken, (req, res) => {
   });
 });
 
-// 8. Update (tambah/kurang) poin user spesifik & log ke history
 app.post('/api/users/:id/points', authenticateToken, (req, res) => {
   const { amount, source, customerName } = req.body;
   const userId = req.params.id;
@@ -1558,7 +1469,6 @@ app.post('/api/users/:id/points', authenticateToken, (req, res) => {
         return res.status(500).json({ error: 'Gagal memperbarui poin' });
       }
 
-      // Log ke riwayat poin
       db.query('INSERT INTO point_history (user_id, customer_name, points, source) VALUES (?, ?, ?, ?)', [userId, name, amount, source], (err) => {
         if (err) console.error('❌ Gagal mencatat riwayat poin:', err.message);
       });
@@ -1568,10 +1478,9 @@ app.post('/api/users/:id/points', authenticateToken, (req, res) => {
   });
 });
 
-// Serve static frontend build
-app.use(express.static(path.join(__dirname, 'NGOLAB', 'dist')));
+app.use(express.static(path.join(__dirname, 'dist')));
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'NGOLAB', 'dist', 'index.html'));
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 app.listen(port, () => {

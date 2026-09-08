@@ -246,7 +246,6 @@ export function KDS({ orders, setOrders, onUpdateStatus }: KDSProps) {
                         #{order.id.slice(-4)}
                       </Badge>
                     </div>
-                    </div>
                     <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-stone-500 font-medium">
                       <Clock size={12} className="opacity-80" />
                       <span>{order.time}</span>
