@@ -39,77 +39,47 @@ interface Order {
 interface KDSProps {
   orders: Order[];
   setOrders: React.Dispatch<React.SetStateAction<Order[]>>;
-  onUpdateStatus: (orderId: string, newStatus: string) => void;
+  onUpdateStatus: (orderId: string, newStatus: Order['status']) => void;
 }
 
 export function KDS({ orders, setOrders, onUpdateStatus }: KDSProps) {
   const [filter, setFilter] = useState<'all' | 'Menunggu' | 'Sedang Disiapkan'>('Menunggu');
-  const [currentTime, setCurrentTime] = useState(new Date());
 
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000); // Update every 1s for accurate monitoring
-    return () => clearInterval(timer);
-  }, []);
-
-  // Helper to calculate waiting time
-  const getTimeElapsed = (orderTime: string) => {
-    if (!orderTime) return '-';
+  const getWaitMinutes = (orderTime: string) => {
+    if (!orderTime) return 0;
     try {
       let orderDate: Date;
       if (orderTime.includes('T') || orderTime.includes('-')) {
         orderDate = new Date(orderTime);
       } else {
-        const parts = orderTime.split(/[:\.]/);
-        if (parts.length < 2) return '-';
+        const parts = orderTime.split(/[:\\.]/);
+        if (parts.length < 2) return 0;
         const hours = Number(parts[0]);
         const minutes = Number(parts[1]);
         orderDate = new Date();
         orderDate.setHours(hours, minutes, 0);
       }
-      
-      const diff = Math.floor((currentTime.getTime() - orderDate.getTime()) / 60000);
-      if (diff < 0) return '0 m';
-      return `${diff} m`;
+      const diff = Math.floor((Date.now() - orderDate.getTime()) / 60000);
+      return Math.max(0, diff);
     } catch (e) {
-      return '-';
+      return 0;
     }
-  };
-
-  const getCookingDuration = (startedAt?: string) => {
-    if (!startedAt) return '0m 0s';
-    const start = new Date(startedAt);
-    if (isNaN(start.getTime())) return '0m 0s';
-    const diffInSeconds = Math.floor((currentTime.getTime() - start.getTime()) / 1000);
-
-    if (diffInSeconds < 0) return '0m 0s';
-    
-    const mins = Math.floor(diffInSeconds / 60);
-    const secs = diffInSeconds % 60;
-    return `${mins}m ${secs}s`;
   };
 
   const getWaitSeverity = (orderTime: string) => {
-    if (!orderTime) return 'normal';
-    try {
-      let orderDate: Date;
-      if (orderTime.includes('T') || orderTime.includes('-')) {
-        orderDate = new Date(orderTime);
-      } else {
-        const parts = orderTime.split(/[:\.]/);
-        if (parts.length < 2) return 'normal';
-        const hours = Number(parts[0]);
-        const minutes = Number(parts[1]);
-        orderDate = new Date();
-        orderDate.setHours(hours, minutes, 0);
-      }
-      const diff = (currentTime.getTime() - orderDate.getTime()) / 60000;
-      
-      if (diff >= 30) return 'critical';
-      if (diff >= 15) return 'warning';
-      return 'normal';
-    } catch (e) {
-      return 'normal';
-    }
+    const diff = getWaitMinutes(orderTime);
+    if (diff >= 30) return 'critical';
+    if (diff >= 15) return 'warning';
+    return 'normal';
+  };
+
+  const getCookingDuration = (startedAt?: string) => {
+    if (!startedAt) return '0m';
+    const start = new Date(startedAt);
+    if (isNaN(start.getTime())) return '0m';
+    const diffInMinutes = Math.floor((Date.now() - start.getTime()) / 60000);
+    if (diffInMinutes < 0) return '0m';
+    return `${diffInMinutes} m`;
   };
 
   // Filter orders for KDS: only those that aren't finished or ready yet
@@ -169,51 +139,6 @@ export function KDS({ orders, setOrders, onUpdateStatus }: KDSProps) {
               </div>
             </CardContent>
           </Card>
-        </div>
-        
-        <div className="flex items-center justify-between sm:justify-end gap-1.5 p-1.5 bg-stone-100 rounded-2xl">
-          <Button
-            variant="outline"
-            className="h-12 sm:h-10 px-3 text-xs font-bold rounded-xl bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100 flex items-center gap-1.5 mr-1 shrink-0"
-            onClick={() => {
-              playNotificationChime();
-              toast.success('🔔 Suara Lonceng KDS Dapur Aktif!');
-            }}
-            title="Tes Suara Notifikasi"
-          >
-            <Bell size={16} className="animate-bounce" />
-            <span className="hidden md:inline">Tes Lonceng</span>
-          </Button>
-          <Button 
-            variant={filter === 'all' ? 'secondary' : 'ghost'} 
-            onClick={() => setFilter('all')}
-            className={cn(
-              "flex-1 sm:flex-initial h-12 sm:h-10 px-4 text-xs font-bold rounded-xl transition-all",
-              filter === 'all' ? "bg-white shadow-sm text-stone-900" : "text-stone-500"
-            )}
-          >
-            Semua
-          </Button>
-          <Button 
-            variant={filter === 'Menunggu' ? 'secondary' : 'ghost'} 
-            onClick={() => setFilter('Menunggu')}
-            className={cn(
-              "flex-1 sm:flex-initial h-12 sm:h-10 px-4 text-xs font-bold rounded-xl transition-all",
-              filter === 'Menunggu' ? "bg-white shadow-sm text-stone-900" : "text-stone-500"
-            )}
-          >
-            Baru
-          </Button>
-          <Button 
-            variant={filter === 'Sedang Disiapkan' ? 'secondary' : 'ghost'} 
-            onClick={() => setFilter('Sedang Disiapkan')}
-            className={cn(
-              "flex-1 sm:flex-initial h-12 sm:h-10 px-4 text-xs font-bold rounded-xl transition-all",
-              filter === 'Sedang Disiapkan' ? "bg-white shadow-sm text-stone-900" : "text-stone-500"
-            )}
-          >
-            Memasak
-          </Button>
         </div>
       </div>
 
