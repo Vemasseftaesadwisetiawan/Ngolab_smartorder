@@ -44,6 +44,12 @@ interface KDSProps {
 
 export function KDS({ orders, setOrders, onUpdateStatus }: KDSProps) {
   const [filter, setFilter] = useState<'all' | 'Menunggu' | 'Sedang Disiapkan'>('Menunggu');
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   const getWaitMinutes = (orderTime: string) => {
     if (!orderTime) return 0;
@@ -52,14 +58,14 @@ export function KDS({ orders, setOrders, onUpdateStatus }: KDSProps) {
       if (orderTime.includes('T') || orderTime.includes('-')) {
         orderDate = new Date(orderTime);
       } else {
-        const parts = orderTime.split(/[:\\.]/);
+        const parts = orderTime.split(/[:\.]/);
         if (parts.length < 2) return 0;
         const hours = Number(parts[0]);
         const minutes = Number(parts[1]);
         orderDate = new Date();
         orderDate.setHours(hours, minutes, 0);
       }
-      const diff = Math.floor((Date.now() - orderDate.getTime()) / 60000);
+      const diff = Math.floor((now.getTime() - orderDate.getTime()) / 60000);
       return Math.max(0, diff);
     } catch (e) {
       return 0;
@@ -173,7 +179,7 @@ export function KDS({ orders, setOrders, onUpdateStatus }: KDSProps) {
                     </div>
                     <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-stone-500 font-medium">
                       <Clock size={12} className="opacity-80" />
-                      <span>{order.time}</span>
+                      <span>{order.time ? String(order.time).slice(0, 5) : '-'}</span>
                     </div>
                   </div>
                   <ChefHat size={20} className={cn(
