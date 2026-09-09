@@ -85,6 +85,83 @@ interface UserOption {
   points: number;
 }
 
+const UserAddPointsRow = ({ user, onDone }: { user: UserOption; onDone: () => void }) => {
+  const [amount, setAmount] = React.useState<number | ''>('');
+  const [source, setSource] = React.useState('Penambahan manual admin');
+  const [saving, setSaving] = React.useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!amount || amount <= 0) {
+      toast.error('Jumlah poin tidak valid');
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await apiFetch(`/api/users/${user.id}/points`, {
+        method: 'POST',
+        body: JSON.stringify({
+          amount: Number(amount),
+          source,
+          customerName: user.name
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Berhasil menambah ${Number(amount)} poin untuk ${user.name}`);
+        setAmount('');
+        setSource('Penambahan manual admin');
+        onDone();
+      } else {
+        toast.error(data.error || 'Gagal menambah poin');
+      }
+    } catch (err) {
+      toast.error('Gagal terhubung ke server');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <TableRow className="hover:bg-neutral-50/80">
+      <TableCell className="font-medium text-neutral-900">{user.name}</TableCell>
+      <TableCell className="text-neutral-600 text-sm">{user.email}</TableCell>
+      <TableCell className="text-right">
+        <span className="font-bold font-mono text-xs">{user.points} Pts</span>
+      </TableCell>
+      <TableCell>
+        <Input
+          type="number"
+          value={amount}
+          onChange={(e) => setAmount(Number(e.target.value))}
+          required
+          min={1}
+          className="bg-white border-neutral-200 font-medium w-28"
+        />
+      </TableCell>
+      <TableCell>
+        <Input
+          value={source}
+          onChange={(e) => setSource(e.target.value)}
+          required
+          className="bg-white border-neutral-200 font-medium"
+        />
+      </TableCell>
+      <TableCell className="text-right">
+        <Button
+          type="button"
+          size="sm"
+          disabled={saving}
+          onClick={submit}
+          className="bg-orange-600 hover:bg-orange-700 text-white"
+        >
+          {saving ? 'Menyimpan...' : 'Tambah'}
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
+};
+
 export function PointsManagement() {
   const [activeTab, setActiveTab] = useState<'rewards' | 'settings' | 'history'>('rewards');
   
@@ -107,11 +184,6 @@ export function PointsManagement() {
   const [history, setHistory] = useState<PointHistoryItem[]>([]);
   const [historySearchTerm, setHistorySearchTerm] = useState('');
   const [users, setUsers] = useState<UserOption[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState<number | ''>('');
-  const [addPointsAmount, setAddPointsAmount] = useState<number | ''>('');
-  const [addPointsSource, setAddPointsSource] = useState('Penambahan manual admin');
-  const [addPointsCustomerName, setAddPointsCustomerName] = useState('');
-  const [isAddingPoints, setIsAddingPoints] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Fetch Point Settings
@@ -294,40 +366,6 @@ export function PointsManagement() {
     setRewardPoints('');
     setRewardDescription('');
     setRewardStatus('Tersedia');
-  };
-
-  const handleAddPoints = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedUserId || !addPointsAmount || addPointsAmount <= 0) {
-      toast.error('Pilih pengguna dan jumlah poin yang valid');
-      return;
-    }
-    setIsAddingPoints(true);
-    try {
-      const res = await apiFetch(`/api/users/${selectedUserId}/points`, {
-        method: 'POST',
-        body: JSON.stringify({
-          amount: Number(addPointsAmount),
-          source: addPointsSource,
-          customerName: addPointsCustomerName || undefined
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        toast.success(`Berhasil menambah ${Number(addPointsAmount)} poin`);
-        setAddPointsAmount('');
-        setAddPointsSource('Penambahan manual admin');
-        setAddPointsCustomerName('');
-        fetchHistory();
-        fetchUsers();
-      } else {
-        toast.error(data.error || 'Gagal menambah poin');
-      }
-    } catch (err) {
-      toast.error('Gagal terhubung ke server');
-    } finally {
-      setIsAddingPoints(false);
-    }
   };
 
   const filteredRewards = useMemo(() => {
@@ -569,7 +607,7 @@ export function PointsManagement() {
 
         {/* TAB 3: ADD POINTS */}
         <TabsContent value="add" className="space-y-4">
-          <Card className="border border-neutral-200 bg-white max-w-2xl">
+          <Card className="border border-neutral-200 bg-white">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <UserCheck size={18} className="text-neutral-600" />
@@ -580,63 +618,105 @@ export function PointsManagement() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleAddPoints} className="space-y-5">
-                <div className="space-y-2">
-                  <Label htmlFor="add-points-user">Pengguna</Label>
-                  <Select
-                    value={selectedUserId ? String(selectedUserId) : ''}
-                    onValueChange={(val) => {
-                      const user = users.find(u => String(u.id) === val);
-                      setSelectedUserId(user ? user.id : '');
-                      setAddPointsCustomerName(user ? user.name : '');
-                    }}
-                  >
-                    <SelectTrigger id="add-points-user">
-                      <SelectValue placeholder="Pilih pengguna..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {users.map(u => (
-                        <SelectItem key={u.id} value={String(u.id)}>
-                          {u.name} ({u.email}) — {u.points} Pts
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="rounded-lg border border-neutral-200 overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-neutral-50 hover:bg-neutral-50">
+                      <TableHead className="text-[11px] font-semibold text-neutral-500">Pelanggan</TableHead>
+                      <TableHead className="text-[11px] font-semibold text-neutral-500">Email</TableHead>
+                      <TableHead className="text-[11px] font-semibold text-neutral-500 text-right">Poin Saat Ini</TableHead>
+                      <TableHead className="text-[11px] font-semibold text-neutral-500">Jumlah Poin</TableHead>
+                      <TableHead className="text-[11px] font-semibold text-neutral-500">Sumber / Aktivitas</TableHead>
+                      <TableHead className="text-[11px] font-semibold text-neutral-500 text-right">Aksi</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {users.map((u) => {
+                      const [amount, setAmount] = React.useState<number | ''>('');
+                      const [source, setSource] = React.useState('Penambahan manual admin');
+                      const [saving, setSaving] = React.useState(false);
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="add-points-amount">Jumlah Poin</Label>
-                    <Input
-                      id="add-points-amount"
-                      type="number"
-                      value={addPointsAmount}
-                      onChange={(e) => setAddPointsAmount(Number(e.target.value))}
-                      required
-                      min={1}
-                      className="bg-white border-neutral-200 font-medium"
-                    />
-                  </div>
+                      const submit = async (e: React.FormEvent) => {
+                        e.preventDefault();
+                        if (!amount || amount <= 0) {
+                          toast.error('Jumlah poin tidak valid');
+                          return;
+                        }
+                        setSaving(true);
+                        try {
+                          const res = await apiFetch(`/api/users/${u.id}/points`, {
+                            method: 'POST',
+                            body: JSON.stringify({
+                              amount: Number(amount),
+                              source,
+                              customerName: u.name
+                            })
+                          });
+                          const data = await res.json();
+                          if (data.success) {
+                            toast.success(`Berhasil menambah ${Number(amount)} poin untuk ${u.name}`);
+                            setAmount('');
+                            setSource('Penambahan manual admin');
+                            fetchHistory();
+                          } else {
+                            toast.error(data.error || 'Gagal menambah poin');
+                          }
+                        } catch (err) {
+                          toast.error('Gagal terhubung ke server');
+                        } finally {
+                          setSaving(false);
+                        }
+                      };
 
-                  <div className="space-y-2">
-                    <Label htmlFor="add-points-source">Sumber / Aktivitas</Label>
-                    <Input
-                      id="add-points-source"
-                      value={addPointsSource}
-                      onChange={(e) => setAddPointsSource(e.target.value)}
-                      required
-                      className="bg-white border-neutral-200 font-medium"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  <Button type="submit" disabled={isAddingPoints} className="bg-orange-600 hover:bg-orange-700 gap-2">
-                    <Plus size={16} />
-                    {isAddingPoints ? 'Menyimpan...' : 'Tambah Poin'}
-                  </Button>
-                </div>
-              </form>
+                      return (
+                        <TableRow key={u.id} className="hover:bg-neutral-50/80">
+                          <TableCell className="font-medium text-neutral-900">{u.name}</TableCell>
+                          <TableCell className="text-neutral-600 text-sm">{u.email}</TableCell>
+                          <TableCell className="text-right">
+                            <span className="font-bold font-mono text-xs">{u.points} Pts</span>
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              value={amount}
+                              onChange={(e) => setAmount(Number(e.target.value))}
+                              required
+                              min={1}
+                              className="bg-white border-neutral-200 font-medium w-28"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              value={source}
+                              onChange={(e) => setSource(e.target.value)}
+                              required
+                              className="bg-white border-neutral-200 font-medium"
+                            />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={saving}
+                              onClick={submit}
+                              className="bg-orange-600 hover:bg-orange-700 text-white"
+                            >
+                              {saving ? 'Menyimpan...' : 'Tambah'}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {users.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-12 text-neutral-400">
+                          Belum ada pengguna terdaftar.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
