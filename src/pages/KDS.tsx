@@ -43,7 +43,7 @@ interface KDSProps {
 }
 
 export function KDS({ orders, setOrders, onUpdateStatus }: KDSProps) {
-  const [filter, setFilter] = useState<'all' | 'Menunggu' | 'Sedang Disiapkan'>('Menunggu');
+  const [filter, setFilter] = useState<'all' | 'Menunggu' | 'Sedang Disiapkan'>('all');
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -150,6 +150,29 @@ export function KDS({ orders, setOrders, onUpdateStatus }: KDSProps) {
 
       {/* Orders Grid */}
       <ScrollArea className="flex-1 -mx-2 px-2">
+        <div className="flex items-center gap-2 mb-4">
+          <Button
+            variant={filter === 'all' ? 'default' : 'outline'}
+            className="h-8 px-3 text-xs font-bold rounded-lg"
+            onClick={() => setFilter('all')}
+          >
+            Semua
+          </Button>
+          <Button
+            variant={filter === 'Menunggu' ? 'default' : 'outline'}
+            className="h-8 px-3 text-xs font-bold rounded-lg"
+            onClick={() => setFilter('Menunggu')}
+          >
+            Menunggu
+          </Button>
+          <Button
+            variant={filter === 'Sedang Disiapkan' ? 'default' : 'outline'}
+            className="h-8 px-3 text-xs font-bold rounded-lg"
+            onClick={() => setFilter('Sedang Disiapkan')}
+          >
+            Sedang Dimasak
+          </Button>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 pb-6">
           {activeOrders.map((order) => {
             const severity = getWaitSeverity(order.createdAt || order.time);

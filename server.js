@@ -17,7 +17,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 5014;
 const JWT_SECRET = process.env.JWT_SECRET || 'ngolab_smartorder_jwt_secret_key_2026_super_secure';
 
 const uploadDir = path.join(__dirname, 'uploads');
@@ -493,6 +493,16 @@ function mapFrontendStatusToDb(feStatus) {
   return feStatus || 'Menunggu';
 }
 
+const fmtDateTime = (val) => {
+  const d = val ? new Date(val) : null;
+  if (!d || isNaN(d.getTime())) return { date: '-', time: '-' };
+  const pad = (n) => String(n).padStart(2, '0');
+  return {
+    date: `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`,
+    time: `${pad(d.getHours())}:${pad(d.getMinutes())}`
+  };
+};
+
 app.get('/api/orders', authenticateToken, (req, res) => {
   const queryOrders = 'SELECT * FROM orders ORDER BY created_at DESC';
   const queryItems = 'SELECT * FROM order_items';
@@ -512,6 +522,8 @@ app.get('/api/orders', authenticateToken, (req, res) => {
           note: i.note
         }));
         
+        const { date, time } = fmtDateTime(order.created_at);
+        
         return {
           id: order.id,
           table: order.destination_label,
@@ -522,8 +534,8 @@ app.get('/api/orders', authenticateToken, (req, res) => {
           amountPaid: Number(order.amount_paid),
           change: Number(order.change_amount),
           type: order.order_type,
-          time: order.created_at ? order.created_at.split(' ')[1].substring(0,5) : '-',
-          date: order.created_at ? order.created_at.split(' ')[0] : '-',
+          time,
+          date,
           cookingStartedAt: order.cooking_started_at,
           paymentProofUrl: order.payment_proof ? `${req.protocol}://${req.get('host')}${order.payment_proof}` : null,
           paymentProofStatus: order.payment_status || 'pending',
@@ -755,6 +767,8 @@ app.get('/api/users/:id/orders', authenticateToken, (req, res) => {
           note: i.note
         }));
         
+        const { date, time } = fmtDateTime(order.created_at);
+        
         return {
           id: order.id,
           table: order.destination_label,
@@ -765,8 +779,8 @@ app.get('/api/users/:id/orders', authenticateToken, (req, res) => {
           amountPaid: Number(order.amount_paid),
           change: Number(order.change_amount),
           type: order.order_type,
-          time: order.created_at ? order.created_at.split(' ')[1].substring(0,5) : '-',
-          date: order.created_at ? order.created_at.split(' ')[0] : '-',
+          time,
+          date,
           cookingStartedAt: order.cooking_started_at,
           paymentProofUrl: order.payment_proof ? `${req.protocol}://${req.get('host')}${order.payment_proof}` : null,
           paymentProofStatus: order.payment_status || 'pending',
