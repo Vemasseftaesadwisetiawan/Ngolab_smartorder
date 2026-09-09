@@ -534,13 +534,8 @@ app.get('/api/orders', authenticateToken, (req, res) => {
           amountPaid: Number(order.amount_paid),
           change: Number(order.change_amount),
           type: order.order_type,
-<<<<<<< HEAD
-          time: order.created_at ? order.created_at.split(' ')[1].substring(0,5) : '-',
-          date: order.created_at ? order.created_at.split(' ')[0] : '-',
-=======
           time,
           date,
->>>>>>> 2ae5f6e674980e4652804cbddb3b7d9f5529e533
           cookingStartedAt: order.cooking_started_at,
           paymentProofUrl: order.payment_proof ? `${req.protocol}://${req.get('host')}${order.payment_proof}` : null,
           paymentProofStatus: order.payment_status || 'pending',
@@ -784,13 +779,8 @@ app.get('/api/users/:id/orders', authenticateToken, (req, res) => {
           amountPaid: Number(order.amount_paid),
           change: Number(order.change_amount),
           type: order.order_type,
-<<<<<<< HEAD
-          time: order.created_at ? order.created_at.split(' ')[1].substring(0,5) : '-',
-          date: order.created_at ? order.created_at.split(' ')[0] : '-',
-=======
           time,
           date,
->>>>>>> 2ae5f6e674980e4652804cbddb3b7d9f5529e533
           cookingStartedAt: order.cooking_started_at,
           paymentProofUrl: order.payment_proof ? `${req.protocol}://${req.get('host')}${order.payment_proof}` : null,
           paymentProofStatus: order.payment_status || 'pending',
