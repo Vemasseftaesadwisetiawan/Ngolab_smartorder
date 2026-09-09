@@ -631,82 +631,9 @@ export function PointsManagement() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {users.map((u) => {
-                      const [amount, setAmount] = React.useState<number | ''>('');
-                      const [source, setSource] = React.useState('Penambahan manual admin');
-                      const [saving, setSaving] = React.useState(false);
-
-                      const submit = async (e: React.FormEvent) => {
-                        e.preventDefault();
-                        if (!amount || amount <= 0) {
-                          toast.error('Jumlah poin tidak valid');
-                          return;
-                        }
-                        setSaving(true);
-                        try {
-                          const res = await apiFetch(`/api/users/${u.id}/points`, {
-                            method: 'POST',
-                            body: JSON.stringify({
-                              amount: Number(amount),
-                              source,
-                              customerName: u.name
-                            })
-                          });
-                          const data = await res.json();
-                          if (data.success) {
-                            toast.success(`Berhasil menambah ${Number(amount)} poin untuk ${u.name}`);
-                            setAmount('');
-                            setSource('Penambahan manual admin');
-                            fetchHistory();
-                          } else {
-                            toast.error(data.error || 'Gagal menambah poin');
-                          }
-                        } catch (err) {
-                          toast.error('Gagal terhubung ke server');
-                        } finally {
-                          setSaving(false);
-                        }
-                      };
-
-                      return (
-                        <TableRow key={u.id} className="hover:bg-neutral-50/80">
-                          <TableCell className="font-medium text-neutral-900">{u.name}</TableCell>
-                          <TableCell className="text-neutral-600 text-sm">{u.email}</TableCell>
-                          <TableCell className="text-right">
-                            <span className="font-bold font-mono text-xs">{u.points} Pts</span>
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              value={amount}
-                              onChange={(e) => setAmount(Number(e.target.value))}
-                              required
-                              min={1}
-                              className="bg-white border-neutral-200 font-medium w-28"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              value={source}
-                              onChange={(e) => setSource(e.target.value)}
-                              required
-                              className="bg-white border-neutral-200 font-medium"
-                            />
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              type="button"
-                              size="sm"
-                              disabled={saving}
-                              onClick={submit}
-                              className="bg-orange-600 hover:bg-orange-700 text-white"
-                            >
-                              {saving ? 'Menyimpan...' : 'Tambah'}
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
+                    {users.map((u) => (
+                      <UserAddPointsRow key={u.id} user={u} onDone={fetchHistory} />
+                    ))}
                     {users.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={6} className="text-center py-12 text-neutral-400">
