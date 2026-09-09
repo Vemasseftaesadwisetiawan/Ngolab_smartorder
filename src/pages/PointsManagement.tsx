@@ -15,7 +15,8 @@ import {
   MoreVertical,
   Filter,
   Sparkles,
-  UserCheck
+  UserCheck,
+  Users
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -77,6 +78,12 @@ interface PointHistoryItem {
   source: string;
   created_at: string;
 }
+interface UserOption {
+  id: number;
+  name: string;
+  email: string;
+  points: number;
+}
 
 export function PointsManagement() {
   const [activeTab, setActiveTab] = useState<'rewards' | 'settings' | 'history'>('rewards');
@@ -99,6 +106,12 @@ export function PointsManagement() {
   // History State
   const [history, setHistory] = useState<PointHistoryItem[]>([]);
   const [historySearchTerm, setHistorySearchTerm] = useState('');
+  const [users, setUsers] = useState<UserOption[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<number | ''>('');
+  const [addPointsAmount, setAddPointsAmount] = useState<number | ''>('');
+  const [addPointsSource, setAddPointsSource] = useState('Penambahan manual admin');
+  const [addPointsCustomerName, setAddPointsCustomerName] = useState('');
+  const [isAddingPoints, setIsAddingPoints] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Fetch Point Settings
@@ -147,10 +160,22 @@ export function PointsManagement() {
     }
   };
 
+  const fetchUsers = async () => {
+    try {
+      const res = await apiFetch('/api/users');
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setUsers(data.map(u => ({ id: u.id, name: u.name, email: u.email, points: Number(u.points || 0) })));
+      }
+    } catch (err) {
+      console.error('Gagal mengambil data pengguna:', err);
+    }
+  };
+
   useEffect(() => {
     const loadAll = async () => {
       setIsLoading(true);
-      await Promise.all([fetchSettings(), fetchRewards(), fetchHistory()]);
+      await Promise.all([fetchSettings(), fetchRewards(), fetchHistory(), fetchUsers()]);
       setIsLoading(false);
     };
     loadAll();
@@ -271,6 +296,40 @@ export function PointsManagement() {
     setRewardStatus('Tersedia');
   };
 
+  const handleAddPoints = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUserId || !addPointsAmount || addPointsAmount <= 0) {
+      toast.error('Pilih pengguna dan jumlah poin yang valid');
+      return;
+    }
+    setIsAddingPoints(true);
+    try {
+      const res = await apiFetch(`/api/users/${selectedUserId}/points`, {
+        method: 'POST',
+        body: JSON.stringify({
+          amount: Number(addPointsAmount),
+          source: addPointsSource,
+          customerName: addPointsCustomerName || undefined
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Berhasil menambah ${Number(addPointsAmount)} poin`);
+        setAddPointsAmount('');
+        setAddPointsSource('Penambahan manual admin');
+        setAddPointsCustomerName('');
+        fetchHistory();
+        fetchUsers();
+      } else {
+        toast.error(data.error || 'Gagal menambah poin');
+      }
+    } catch (err) {
+      toast.error('Gagal terhubung ke server');
+    } finally {
+      setIsAddingPoints(false);
+    }
+  };
+
   const filteredRewards = useMemo(() => {
     return rewards.filter(r => r.name.toLowerCase().includes(rewardSearchTerm.toLowerCase()) ||
       r.description.toLowerCase().includes(rewardSearchTerm.toLowerCase()));
@@ -353,6 +412,9 @@ export function PointsManagement() {
           </TabsTrigger>
           <TabsTrigger value="history" className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
             <History size={16} /> Riwayat Poin ({history.length})
+          </TabsTrigger>
+          <TabsTrigger value="add" className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+            <UserCheck size={16} /> Tambah Poin
           </TabsTrigger>
         </TabsList>
 
@@ -505,7 +567,81 @@ export function PointsManagement() {
           </Card>
         </TabsContent>
 
-        {/* TAB 3: HISTORY */}
+        {/* TAB 3: ADD POINTS */}
+        <TabsContent value="add" className="space-y-4">
+          <Card className="border border-neutral-200 bg-white max-w-2xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UserCheck size={18} className="text-neutral-600" />
+                Tambah Poin Pelanggan
+              </CardTitle>
+              <CardDescription>
+                Tambah poin manual ke akun pengguna aplikasi konsumen yang sudah terdaftar.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleAddPoints} className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="add-points-user">Pengguna</Label>
+                  <Select
+                    value={selectedUserId ? String(selectedUserId) : ''}
+                    onValueChange={(val) => {
+                      const user = users.find(u => String(u.id) === val);
+                      setSelectedUserId(user ? user.id : '');
+                      setAddPointsCustomerName(user ? user.name : '');
+                    }}
+                  >
+                    <SelectTrigger id="add-points-user">
+                      <SelectValue placeholder="Pilih pengguna..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {users.map(u => (
+                        <SelectItem key={u.id} value={String(u.id)}>
+                          {u.name} ({u.email}) — {u.points} Pts
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="add-points-amount">Jumlah Poin</Label>
+                    <Input
+                      id="add-points-amount"
+                      type="number"
+                      value={addPointsAmount}
+                      onChange={(e) => setAddPointsAmount(Number(e.target.value))}
+                      required
+                      min={1}
+                      className="bg-white border-neutral-200 font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="add-points-source">Sumber / Aktivitas</Label>
+                    <Input
+                      id="add-points-source"
+                      value={addPointsSource}
+                      onChange={(e) => setAddPointsSource(e.target.value)}
+                      required
+                      className="bg-white border-neutral-200 font-medium"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <Button type="submit" disabled={isAddingPoints} className="bg-orange-600 hover:bg-orange-700 gap-2">
+                    <Plus size={16} />
+                    {isAddingPoints ? 'Menyimpan...' : 'Tambah Poin'}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB 4: HISTORY */}
         <TabsContent value="history" className="space-y-4">
           <div className="relative w-full md:w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
