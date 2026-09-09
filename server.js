@@ -705,7 +705,7 @@ app.post('/api/orders/:id/payment-proof', upload.single('paymentProof'), compres
   
   const paymentProofUrl = `/uploads/${req.file.filename}`;
   
-  db.query('UPDATE orders SET payment_proof=?, payment_status="pending" WHERE id=?', [paymentProofUrl, orderId], (err, result) => {
+  db.query('UPDATE orders SET payment_proof=?, payment_status="Menunggu Validasi" WHERE id=?', [paymentProofUrl, orderId], (err, result) => {
     if (err) return res.status(500).json({ error: 'Gagal menyimpan bukti pembayaran', details: err.message });
     res.json({ message: 'Bukti pembayaran berhasil dikirim dan menunggu verifikasi', paymentProofUrl });
   });
@@ -719,7 +719,9 @@ app.put('/api/orders/:id/payment-proof/status', authenticateToken, (req, res) =>
     return res.status(400).json({ error: 'Status harus "approved" atau "rejected"' });
   }
   
-  db.query('UPDATE orders SET payment_status=? WHERE id=?', [status, orderId], (err, result) => {
+  const paymentDbStatus = status === 'approved' ? 'Terverifikasi' : 'Ditolak';
+  
+  db.query('UPDATE orders SET payment_status=? WHERE id=?', [paymentDbStatus, orderId], (err, result) => {
     if (err) return res.status(500).json({ error: 'Gagal memperbarui status verifikasi' });
     
     if (status === 'approved') {
@@ -728,7 +730,7 @@ app.put('/api/orders/:id/payment-proof/status', authenticateToken, (req, res) =>
       });
     }
     
-    res.json({ message: `Bukti pembayaran berhasil ${status === 'approved' ? 'disetujui' : 'ditolak'}`, status });
+    res.json({ message: `Bukti pembayaran berhasil ${status === 'approved' ? 'disetujui' : 'ditolak'}`, status: paymentDbStatus });
   });
 });
 
