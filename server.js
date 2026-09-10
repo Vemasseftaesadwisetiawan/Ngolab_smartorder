@@ -691,10 +691,23 @@ const handleCreateOrder = (req, res) => {
 
     const redeem = redeemRows[0];
     const resolveRewardInfo = (cb) => {
-      if (redeem.reward_name && redeem.points_spent) return cb({ voucher_code: voucherCode, reward_name: redeem.reward_name, points_spent: redeem.points_spent });
+      const fallback = {
+        voucher_code: voucherCode,
+        reward_name: redeem.reward_name || 'Voucher Reward',
+        points_spent: redeem.points_spent || 0
+      };
+
+      if (!redeem.reward_id) return cb(fallback);
+
       db.query('SELECT name, points FROM point_rewards WHERE id = ? LIMIT 1', [redeem.reward_id], (err2, rewardRows) => {
-        if (err2 || !rewardRows.length) return cb({ voucher_code: voucherCode, reward_name: redeem.reward_name || 'Voucher Reward', points_spent: redeem.points_spent || 0 });
-        cb({ voucher_code: voucherCode, reward_name: rewardRows[0].name, points_spent: Number(rewardRows[0].points || 0) });
+        if (err2 || !rewardRows.length) return cb(fallback);
+
+        const reward = rewardRows[0];
+        cb({
+          voucher_code: voucherCode,
+          reward_name: reward.name,
+          points_spent: Number(reward.points || 0)
+        });
       });
     };
 
