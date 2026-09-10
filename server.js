@@ -563,10 +563,12 @@ const handleCreateOrder = (req, res) => {
   }
 
   const processOrder = (voucher) => {
-    const finalTotal = voucher ? 0 : total;
+    const finalTotal = total;
+    const finalAmountPaid = voucher ? 0 : amountPaid;
+    const finalChange = voucher ? 0 : change;
     const queryOrder = `INSERT INTO orders (id, destination_label, customer_name, total, status, payment_method, amount_paid, change_amount, order_type, user_id, voucher_code, reward_name, points_spent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
-    db.query(queryOrder, [id, table, customer, finalTotal, status, paymentMethod, amountPaid, change, validOrderType, userId || null, voucher ? voucher.voucher_code : null, voucher ? voucher.reward_name : null, voucher ? voucher.points_spent : null], (err, result) => {
+    db.query(queryOrder, [id, table, customer, finalTotal, status, paymentMethod, finalAmountPaid, finalChange, validOrderType, userId || null, voucher ? voucher.voucher_code : null, voucher ? voucher.reward_name : null, voucher ? voucher.points_spent : null], (err, result) => {
       if (err) return res.status(500).json({ error: 'Gagal menyimpan pesanan', details: err });
 
       if (items && items.length > 0) {
