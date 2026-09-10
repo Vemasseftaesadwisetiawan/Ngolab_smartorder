@@ -65,6 +65,7 @@ interface Order {
   paymentMethod?: string;
   paymentProofUrl?: string;
   paymentProofStatus?: 'pending' | 'approved' | 'rejected';
+  voucherCode?: string;
 }
 
 interface TransactionHistoryProps {
@@ -299,6 +300,7 @@ export function TransactionHistory({ orders, searchTerm = '', onVerifyPaymentPro
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Bukti</TableHead>
+                <TableHead>Voucher</TableHead>
                 <TableHead className="w-16 text-right">Aksi</TableHead>
               </TableRow>
             </TableHeader>
@@ -361,6 +363,15 @@ export function TransactionHistory({ orders, searchTerm = '', onVerifyPaymentPro
                         <span className="text-xs text-neutral-400">-</span>
                       )}
                     </TableCell>
+                    <TableCell>
+                      {trx.voucherCode ? (
+                        <span className="text-xs font-mono font-bold text-orange-700 bg-orange-50 border border-orange-200 px-2 py-1 rounded-md">
+                          {trx.voucherCode}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-neutral-400">-</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
                         <Button 
@@ -388,7 +399,7 @@ export function TransactionHistory({ orders, searchTerm = '', onVerifyPaymentPro
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={9}>
+                  <TableCell colSpan={10}>
                     <EmptyState
                       icon={<Search size={48} className="text-neutral-300" />}
                       title="Tidak ada transaksi ditemukan"
@@ -509,7 +520,7 @@ export function TransactionHistory({ orders, searchTerm = '', onVerifyPaymentPro
                 <p className="text-xl font-bold text-neutral-900">Rp {(selectedTrx.total || 0).toLocaleString()}</p>
               </div>
 
-              {selectedTrx.paymentProofUrl && (
+                {selectedTrx.paymentProofUrl && (
                 <div className="pt-4 border-t border-neutral-100 space-y-2">
                   <p className="text-xs text-neutral-400 uppercase font-bold tracking-wider">Bukti Pembayaran</p>
                   <div className="flex items-center gap-2">
@@ -549,6 +560,17 @@ export function TransactionHistory({ orders, searchTerm = '', onVerifyPaymentPro
                   >
                     <Eye size={16} /> Lihat Bukti Pembayaran
                   </Button>
+                </div>
+              )}
+              
+              {selectedTrx.voucherCode && (
+                <div className="pt-4 border-t border-neutral-100 space-y-2">
+                  <p className="text-xs text-neutral-400 uppercase font-bold tracking-wider">Voucher Reward</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono font-bold text-orange-700 bg-orange-50 border border-orange-200 px-2 py-1 rounded-md">
+                      {selectedTrx.voucherCode}
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
