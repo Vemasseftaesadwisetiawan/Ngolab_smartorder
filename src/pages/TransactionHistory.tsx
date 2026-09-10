@@ -66,6 +66,8 @@ interface Order {
   paymentProofUrl?: string;
   paymentProofStatus?: 'pending' | 'approved' | 'rejected';
   voucherCode?: string;
+  rewardName?: string;
+  pointsSpent?: number;
 }
 
 interface TransactionHistoryProps {
@@ -365,9 +367,14 @@ export function TransactionHistory({ orders, searchTerm = '', onVerifyPaymentPro
                     </TableCell>
                     <TableCell>
                       {trx.voucherCode ? (
-                        <span className="text-xs font-mono font-bold text-orange-700 bg-orange-50 border border-orange-200 px-2 py-1 rounded-md">
-                          {trx.voucherCode}
-                        </span>
+                        <div className="space-y-1">
+                          <span className="text-xs font-bold text-orange-700 bg-orange-50 border border-orange-200 px-2 py-1 rounded-md">
+                            {trx.rewardName || 'Voucher'} - {trx.pointsSpent || 0} Pts
+                          </span>
+                          <span className="text-[10px] font-mono text-neutral-500 block">
+                            {trx.voucherCode}
+                          </span>
+                        </div>
                       ) : (
                         <span className="text-xs text-neutral-400">-</span>
                       )}

@@ -564,9 +564,9 @@ const handleCreateOrder = (req, res) => {
 
   const processOrder = (voucher) => {
     const finalTotal = voucher ? 0 : total;
-    const queryOrder = `INSERT INTO orders (id, destination_label, customer_name, total, status, payment_method, amount_paid, change_amount, order_type, user_id, voucher_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    const queryOrder = `INSERT INTO orders (id, destination_label, customer_name, total, status, payment_method, amount_paid, change_amount, order_type, user_id, voucher_code, reward_name, points_spent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
-    db.query(queryOrder, [id, table, customer, finalTotal, status, paymentMethod, amountPaid, change, validOrderType, userId || null, voucher ? voucher.voucher_code : null], (err, result) => {
+    db.query(queryOrder, [id, table, customer, finalTotal, status, paymentMethod, amountPaid, change, validOrderType, userId || null, voucher ? voucher.voucher_code : null, voucher ? voucher.reward_name : null, voucher ? voucher.points_spent : null], (err, result) => {
       if (err) return res.status(500).json({ error: 'Gagal menyimpan pesanan', details: err });
 
       if (items && items.length > 0) {
@@ -692,7 +692,11 @@ const handleCreateOrder = (req, res) => {
     const redeem = redeemRows[0];
     db.query('UPDATE redeem_history SET status = ? WHERE id = ?', ['used', redeem.id], (err) => {
       if (err) return res.status(500).json({ error: 'Gagal memakai voucher', details: err.message });
-      processOrder({ voucher_code: voucherCode });
+      processOrder({ 
+        voucher_code: voucherCode, 
+        reward_name: redeem.reward_name, 
+        points_spent: redeem.points_spent 
+      });
     });
   });
 };
@@ -806,6 +810,8 @@ app.get('/api/users/:id/orders', authenticateToken, (req, res) => {
           paymentProofUrl: order.payment_proof ? `${req.protocol}://${req.get('host')}${order.payment_proof}` : null,
           paymentProofStatus: order.payment_status || 'pending',
           voucherCode: order.voucher_code || null,
+          rewardName: order.reward_name || null,
+          pointsSpent: order.points_spent || null,
           items: orderItems
         };
       });
