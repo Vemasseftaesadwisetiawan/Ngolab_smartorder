@@ -1448,6 +1448,82 @@ app.delete('/api/point-rewards/:id', authenticateToken, (req, res) => {
   });
 });
 
+// ==========================================
+// API ROUTES REDEEM POIN
+// ==========================================
+
+app.post('/api/point-rewards/:id/redeem', authenticateToken, (req, res) => {
+  const userId = req.user.id;
+  const rewardId = req.params.id;
+
+  db.query('SELECT * FROM point_rewards WHERE id = ?', [rewardId], (err, rewards) => {
+    if (err) return res.status(500).json({ error: 'Gagal mengambil hadiah' });
+    if (rewards.length === 0) return res.status(404).json({ error: 'Hadiah tidak ditemukan' });
+
+    const reward = rewards[0];
+    if (reward.status !== 'Tersedia') return res.status(400).json({ error: 'Hadiah tidak tersedia' });
+
+    const pointsRequired = Number(reward.points || reward.points_required || 0);
+
+    db.query('SELECT points, name FROM users WHERE id = ?', [userId], (err, users) => {
+      if (err || users.length === 0) return res.status(404).json({ error: 'User tidak ditemukan' });
+
+      const currentPoints = Number(users[0].points || 0);
+      if (currentPoints < pointsRequired) return res.status(400).json({ error: 'Poin tidak mencukupi' });
+
+      const remainingPoints = currentPoints - pointsRequired;
+      const voucherCode = 'RWD-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+
+      db.query('UPDATE users SET points = ? WHERE id = ?', [remainingPoints, userId], (err) => {
+        if (err) {
+          console.error('❌ Gagal mengurangi poin user:', err.message);
+          return res.status(500).json({ error: 'Gagal memproses redeem' });
+        }
+
+        db.query('INSERT INTO redeem_history (user_id, reward_id, reward_name, points_spent, voucher_code) VALUES (?, ?, ?, ?, ?)',
+          [userId, reward.id, reward.name, pointsRequired, voucherCode],
+          (err, result) => {
+            if (err) {
+              console.error('❌ Gagal mencatat redeem_history:', err.message);
+              return res.status(500).json({ error: 'Gagal menyimpan riwayat redeem' });
+            }
+
+            db.query('INSERT INTO point_history (user_id, customer_name, points, source) VALUES (?, ?, ?, ?)',
+              [userId, users[0].name, -pointsRequired, `Redeem: ${reward.name}`],
+              (err) => {
+                if (err) console.error('❌ Gagal mencatat point_history untuk redeem:', err.message);
+              }
+            );
+
+            res.json({
+              success: true,
+              reward: {
+                id: reward.id,
+                name: reward.name,
+                points: pointsRequired
+              },
+              remainingPoints,
+              voucherCode,
+              redeemedAt: new Date().toISOString()
+            });
+          }
+        );
+      });
+    });
+  });
+});
+
+app.get('/api/redeem-history', authenticateToken, (req, res) => {
+  const userId = req.user.id;
+
+  db.query('SELECT * FROM redeem_history WHERE user_id = ? ORDER BY created_at DESC', [userId], (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: 'Gagal mengambil riwayat redeem' });
+    }
+    res.json(results);
+  });
+});
+
 app.get('/api/point-history', authenticateToken, (req, res) => {
   db.query('SELECT * FROM point_history ORDER BY created_at DESC', (err, results) => {
     if (err) {
