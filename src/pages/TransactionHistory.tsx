@@ -12,8 +12,7 @@ import {
   ChevronRight,
   CheckCircle,
   XCircle,
-  Gift,
-  Coins
+  Gift
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -369,14 +368,9 @@ export function TransactionHistory({ orders, searchTerm = '', onVerifyPaymentPro
                     </TableCell>
                     <TableCell>
                       {trx.voucherCode ? (
-                        <div className="space-y-1">
-                          <span className="text-xs font-bold text-orange-700 bg-orange-50 border border-orange-200 px-2 py-1 rounded-md">
-                            {trx.rewardName || 'Voucher'} - {trx.pointsSpent || 0} Pts
-                          </span>
-                          <span className="text-[10px] font-mono text-neutral-500 block">
-                            {trx.voucherCode}
-                          </span>
-                        </div>
+                        <span className="text-xs font-bold text-orange-700 bg-orange-50 border border-orange-200 px-2 py-1 rounded-md">
+                          {trx.rewardName || 'Voucher'}
+                        </span>
                       ) : (
                         <span className="text-xs text-neutral-400">-</span>
                       )}
@@ -581,13 +575,6 @@ export function TransactionHistory({ orders, searchTerm = '', onVerifyPaymentPro
                         <Gift size={14} className="text-orange-600" />
                       </div>
                       <p className="text-sm font-bold text-neutral-900">{selectedTrx.rewardName || 'Voucher Reward'}</p>
-                    </div>
-                    <div className="flex items-center gap-3 text-[11px] text-neutral-600">
-                      <span className="inline-flex items-center gap-1 font-mono font-bold text-orange-700">
-                        <Coins size={12} /> {selectedTrx.pointsSpent || 0} Pts
-                      </span>
-                      <span className="text-neutral-400">•</span>
-                      <span className="font-mono text-neutral-500">{selectedTrx.voucherCode}</span>
                     </div>
                   </div>
                 </div>

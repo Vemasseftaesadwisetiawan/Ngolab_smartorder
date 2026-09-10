@@ -244,8 +244,7 @@ export function KDS({ orders, setOrders, onUpdateStatus }: KDSProps) {
                     {order.voucherCode && (
                       <div className="mt-2 p-2 rounded-lg border border-orange-200 bg-orange-50">
                         <p className="text-[11px] font-bold text-orange-700">Voucher Reward</p>
-                        <p className="text-xs text-orange-800 font-semibold">{order.rewardName || 'Voucher'} - {order.pointsSpent || 0} Pts</p>
-                        <p className="text-[10px] font-mono text-orange-600">{order.voucherCode}</p>
+                        <p className="text-xs text-orange-800 font-semibold">{order.rewardName || 'Voucher'}</p>
                       </div>
                     )}
                   </div>
