@@ -526,36 +526,6 @@ export function TransactionHistory({ orders, searchTerm = '', onVerifyPaymentPro
                 {selectedTrx.paymentProofUrl && (
                 <div className="pt-4 border-t border-neutral-100 space-y-2">
                   <p className="text-xs text-neutral-400 uppercase font-bold tracking-wider">Bukti Pembayaran</p>
-                  <div className="flex items-center gap-2">
-                    <Badge className={cn(
-                      "border-none",
-                      selectedTrx.paymentProofStatus === 'approved' ? "bg-green-100 text-green-700" :
-                      selectedTrx.paymentProofStatus === 'rejected' ? "bg-red-100 text-red-700" :
-                      "bg-orange-100 text-orange-700"
-                    )}>
-                      {selectedTrx.paymentProofStatus === 'approved' ? 'Disetujui' :
-                       selectedTrx.paymentProofStatus === 'rejected' ? 'Ditolak' : 'Menunggu'}
-                    </Badge>
-                    {selectedTrx.paymentProofStatus === 'pending' && (
-                      <div className="flex gap-2 ml-auto">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="gap-1 border-red-200 text-red-700 hover:bg-red-50"
-                          onClick={() => onVerifyPaymentProof?.(selectedTrx.id, 'rejected')}
-                        >
-                          <XCircle size={14} /> Tolak
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          className="gap-1 bg-green-700 hover:bg-green-800"
-                          onClick={() => onVerifyPaymentProof?.(selectedTrx.id, 'approved')}
-                        >
-                          <CheckCircle size={14} /> Terima
-                        </Button>
-                      </div>
-                    )}
-                  </div>
                   <Button 
                     variant="outline" 
                     className="w-full gap-2" 
