@@ -579,9 +579,24 @@ const handleCreateOrder = (req, res) => {
           if (err2) console.error("Gagal menyimpan rincian pesanan:", err2);
 
           if (promoCode) {
-            db.query('UPDATE promos SET usage_count = usage_count + 1 WHERE code = ?', [promoCode], (errPromo) => {
-              if (errPromo) console.error("Gagal memperbarui kuota penggunaan promo:", errPromo.message);
-              else console.log(`✅ Kuota promo ${promoCode} berhasil ditambah 1.`);
+            db.query('SELECT usage_count, max_usage, status FROM promos WHERE code = ? LIMIT 1', [promoCode], (errPromo, promoRows) => {
+              if (!errPromo && promoRows.length > 0) {
+                const promo = promoRows[0];
+                const currentUsage = Number(promo.usage_count || 0);
+                const maxUsage = promo.max_usage ? Number(promo.max_usage) : null;
+                const isValid = promo.status === 'Active' && (maxUsage === null || currentUsage < maxUsage);
+              
+                if (isValid) {
+                  db.query('UPDATE promos SET usage_count = usage_count + 1 WHERE code = ?', [promoCode], (errUpdate) => {
+                    if (errUpdate) console.error("Gagal memperbarui kuota penggunaan promo:", errUpdate.message);
+                    else console.log(`✅ Kuota promo ${promoCode} berhasil ditambah 1.`);
+                  });
+                } else {
+                  console.warn(`⚠️ Promo ${promoCode} tidak valid atau kuota habis.`);
+                }
+              } else {
+                console.warn(`⚠️ Promo ${promoCode} tidak ditemukan.`);
+              }
             });
           }
 
