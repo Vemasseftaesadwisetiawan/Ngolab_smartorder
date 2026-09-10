@@ -11,7 +11,9 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckCircle,
-  XCircle
+  XCircle,
+  Gift,
+  Coins
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -573,10 +575,20 @@ export function TransactionHistory({ orders, searchTerm = '', onVerifyPaymentPro
               {selectedTrx.voucherCode && (
                 <div className="pt-4 border-t border-neutral-100 space-y-2">
                   <p className="text-xs text-neutral-400 uppercase font-bold tracking-wider">Voucher Reward</p>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono font-bold text-orange-700 bg-orange-50 border border-orange-200 px-2 py-1 rounded-md">
-                      {selectedTrx.voucherCode}
-                    </span>
+                  <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-white rounded-md border border-orange-100">
+                        <Gift size={14} className="text-orange-600" />
+                      </div>
+                      <p className="text-sm font-bold text-neutral-900">{selectedTrx.rewardName || 'Voucher Reward'}</p>
+                    </div>
+                    <div className="flex items-center gap-3 text-[11px] text-neutral-600">
+                      <span className="inline-flex items-center gap-1 font-mono font-bold text-orange-700">
+                        <Coins size={12} /> {selectedTrx.pointsSpent || 0} Pts
+                      </span>
+                      <span className="text-neutral-400">•</span>
+                      <span className="font-mono text-neutral-500">{selectedTrx.voucherCode}</span>
+                    </div>
                   </div>
                 </div>
               )}
