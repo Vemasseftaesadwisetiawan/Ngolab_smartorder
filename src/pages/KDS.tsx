@@ -34,6 +34,7 @@ interface Order {
   type?: string;
   cookingStartedAt?: string;
   createdAt?: string;
+  voucherCode?: string;
 }
 
 interface KDSProps {
@@ -192,6 +193,11 @@ export function KDS({ orders, setOrders, onUpdateStatus }: KDSProps) {
                   <div>
                     <div className="flex items-center gap-2">
                       <CardTitle className="text-lg font-extrabold text-stone-900">{order.table || 'Walk-in'}</CardTitle>
+                      {order.voucherCode && (
+                        <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.5 rounded-md border-orange-200 bg-orange-50 text-orange-700">
+                          VOUCHER
+                        </Badge>
+                      )}
                       <Badge variant="secondary" className={cn(
                         "text-[10px] font-bold px-1.5 py-0.5 rounded-md border-none",
                         isCooking ? "bg-orange-100 text-orange-700" : "bg-stone-100 text-stone-700",
