@@ -540,6 +540,8 @@ app.get('/api/orders', authenticateToken, (req, res) => {
           paymentProofUrl: order.payment_proof ? `${req.protocol}://${req.get('host')}${order.payment_proof}` : null,
           paymentProofStatus: order.payment_status || 'pending',
           voucherCode: order.voucher_code || null,
+          rewardName: order.reward_name || null,
+          pointsSpent: order.points_spent || null,
           items: orderItems
         };
       });
