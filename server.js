@@ -738,6 +738,13 @@ app.put('/api/orders/:id/status', authenticateToken, (req, res) => {
   } else {
     db.query('UPDATE orders SET status=? WHERE id=?', [dbStatus, orderId], (err, result) => {
       if (err) return res.status(500).json({ error: 'Gagal update status pesanan' });
+      
+      if (dbStatus === 'Siap' || dbStatus === 'Selesai') {
+        db.query('UPDATE orders SET payment_status="Terverifikasi" WHERE id=? AND payment_status="Menunggu Validasi"', [orderId], (err2) => {
+          if (err2) console.error('Gagal update payment_status:', err2.message);
+        });
+      }
+      
       res.json({ message: 'Status berhasil diubah', id: orderId, newStatus: status });
     });
   }
