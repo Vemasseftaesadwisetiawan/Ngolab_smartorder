@@ -539,6 +539,7 @@ app.get('/api/orders', authenticateToken, (req, res) => {
           cookingStartedAt: order.cooking_started_at,
           paymentProofUrl: order.payment_proof ? `${req.protocol}://${req.get('host')}${order.payment_proof}` : null,
           paymentProofStatus: order.payment_status || 'pending',
+          voucherCode: order.voucher_code || null,
           items: orderItems
         };
       });
@@ -549,7 +550,7 @@ app.get('/api/orders', authenticateToken, (req, res) => {
 });
 
 const handleCreateOrder = (req, res) => {
-  const { id, table, customer, items, total, paymentMethod, amountPaid, change, type, promoCode, userId } = req.body;
+  const { id, table, customer, items, total, paymentMethod, amountPaid, change, type, promoCode, userId, voucherCode } = req.body;
   const status = 'Menunggu';
 
   let validOrderType = 'Dine-In';
@@ -561,120 +562,138 @@ const handleCreateOrder = (req, res) => {
     validOrderType = 'Dine-In';
   }
 
-  const queryOrder = `INSERT INTO orders (id, destination_label, customer_name, total, status, payment_method, amount_paid, change_amount, order_type, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-  
-  db.query(queryOrder, [id, table, customer, total, status, paymentMethod, amountPaid, change, validOrderType, userId || null], (err, result) => {
-    if (err) return res.status(500).json({ error: 'Gagal menyimpan pesanan', details: err });
-    
-    if (items && items.length > 0) {
-      const itemValues = items.map(item => [id, item.id, item.name, item.price, item.quantity, item.note || '']);
-      db.query('INSERT INTO order_items (order_id, menu_id, menu_name, price, quantity, note) VALUES ?', [itemValues], (err2) => {
-        if (err2) console.error("Gagal menyimpan rincian pesanan:", err2);
-        
-        if (promoCode) {
-          db.query('UPDATE promos SET usage_count = usage_count + 1 WHERE code = ?', [promoCode], (errPromo) => {
-            if (errPromo) console.error("Gagal memperbarui kuota penggunaan promo:", errPromo.message);
-            else console.log(`✅ Kuota promo ${promoCode} berhasil ditambah 1.`);
-          });
-        }
-        
-        items.forEach(orderItem => {
-          if (orderItem.id && !String(orderItem.id).startsWith('ext-')) {
-            db.query('UPDATE menu_items SET stock = GREATEST(0, stock - ?), status = CASE WHEN GREATEST(0, stock - ?) <= 0 THEN \'Habis\' ELSE status END WHERE id = ?', [orderItem.quantity, orderItem.quantity, orderItem.id]);
-            
-            db.query('SELECT r.stock_id, r.amount, s.name FROM menu_recipes r JOIN stock_items s ON r.stock_id = s.id WHERE r.menu_id = ?', [orderItem.id], (err3, recipes) => {
-              if (!err3 && recipes.length > 0) {
-                recipes.forEach(recipe => {
-                  const totalUsed = recipe.amount * orderItem.quantity;
-                  
-                  db.query('SELECT id, qty, min_stock, expiry_date FROM stock_items WHERE name = ? ORDER BY (expiry_date IS NULL) ASC, expiry_date ASC, id ASC', [recipe.name], (errBatches, batches) => {
-                    if (errBatches || batches.length === 0) {
-                      console.warn(`⚠️ Batch pengurutan FEFO tidak ditemukan untuk ${recipe.name}, fallback ke stock_id.`);
-                      const updateStockQuery = 'UPDATE stock_items SET qty = GREATEST(0, qty - ?), status = CASE WHEN GREATEST(0, qty - ?) <= 0 THEN \'Habis\' ELSE status END WHERE id = ?';
-                      db.query(updateStockQuery, [totalUsed, totalUsed, recipe.stock_id]);
-                      return;
-                    }
-                    
-                    let remainingNeed = totalUsed;
-                    const activeBatches = batches.filter(b => Number(b.qty) > 0);
-                    const targetBatches = activeBatches.length > 0 ? activeBatches : batches;
-                    
-                    for (let i = 0; i < targetBatches.length; i++) {
-                      const batch = targetBatches[i];
-                      const currentQty = Number(batch.qty) || 0;
-                      
-                      let deductAmount = Math.min(currentQty, remainingNeed);
-                      
-                      if (i === targetBatches.length - 1 && remainingNeed > 0) {
-                        deductAmount = remainingNeed;
-                      }
-                      
-                      const newQty = Math.max(0, currentQty - deductAmount);
-                      remainingNeed -= deductAmount;
-                      
-                      const minStock = Number(batch.min_stock) || 0;
-                      let newStatus = 'Aman';
-                      if (newQty <= 0) newStatus = 'Habis';
-                      else if (newQty <= minStock / 2) newStatus = 'Kritis';
-                      else if (newQty <= minStock) newStatus = 'Menipis';
-                      
-                      if (batch.expiry_date) {
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
-                        const expiry = new Date(batch.expiry_date);
-                        expiry.setHours(0, 0, 0, 0);
-                        
-                        const diffTime = expiry.getTime() - today.getTime();
-                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                        
-                        if (diffDays < 0) {
-                          newStatus = 'Kedaluwarsa';
-                        } else if (diffDays <= 3) {
-                          newStatus = 'Hampir Kadaluwarsa';
-                        }
-                      }
-                      
-                      db.query('UPDATE stock_items SET qty = ?, status = ? WHERE id = ?', [newQty, newStatus, batch.id], (errUpdate) => {
-                        if (errUpdate) console.error("❌ Gagal update stok batch FEFO:", errUpdate.message);
-                      });
-                      
-                      if (remainingNeed <= 0) break;
-                    }
-                  });
-                });
-              }
+  const processOrder = (voucher) => {
+    const finalTotal = voucher ? 0 : total;
+    const queryOrder = `INSERT INTO orders (id, destination_label, customer_name, total, status, payment_method, amount_paid, change_amount, order_type, user_id, voucher_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+    db.query(queryOrder, [id, table, customer, finalTotal, status, paymentMethod, amountPaid, change, validOrderType, userId || null, voucher ? voucher.voucher_code : null], (err, result) => {
+      if (err) return res.status(500).json({ error: 'Gagal menyimpan pesanan', details: err });
+
+      if (items && items.length > 0) {
+        const itemValues = items.map(item => [id, item.id, item.name, item.price, item.quantity, item.note || '']);
+        db.query('INSERT INTO order_items (order_id, menu_id, menu_name, price, quantity, note) VALUES ?', [itemValues], (err2) => {
+          if (err2) console.error("Gagal menyimpan rincian pesanan:", err2);
+
+          if (promoCode) {
+            db.query('UPDATE promos SET usage_count = usage_count + 1 WHERE code = ?', [promoCode], (errPromo) => {
+              if (errPromo) console.error("Gagal memperbarui kuota penggunaan promo:", errPromo.message);
+              else console.log(`✅ Kuota promo ${promoCode} berhasil ditambah 1.`);
             });
           }
-        });
-      });
-    }
 
-    if (userId) {
-      db.query('SELECT earning_rate, min_purchase FROM point_settings WHERE id = 1', (errSettings, settingsResults) => {
-        if (!errSettings && settingsResults.length > 0) {
-          const earningRate = Number(settingsResults[0].earning_rate) || 1000;
-          const minPurchase = Number(settingsResults[0].min_purchase) || 10000;
+          items.forEach(orderItem => {
+            if (orderItem.id && !String(orderItem.id).startsWith('ext-')) {
+              db.query('UPDATE menu_items SET stock = GREATEST(0, stock - ?), status = CASE WHEN GREATEST(0, stock - ?) <= 0 THEN \'Habis\' ELSE status END WHERE id = ?', [orderItem.quantity, orderItem.quantity, orderItem.id]);
 
-          if (total >= minPurchase) {
-            const pointsEarned = Math.floor(total / earningRate);
-            if (pointsEarned > 0) {
-              db.query('UPDATE users SET points = points + ? WHERE id = ?', [pointsEarned, userId], (errUpdate) => {
-                if (!errUpdate) {
-                  db.query('INSERT INTO point_history (user_id, customer_name, points, source) VALUES (?, ?, ?, ?)', 
-                    [userId, customer, pointsEarned, `Transaksi Order: ${id}`], (errHist) => {
-                      if (errHist) console.error("Gagal mencatat point_history untuk transaksi:", errHist.message);
+              db.query('SELECT r.stock_id, r.amount, s.name FROM menu_recipes r JOIN stock_items s ON r.stock_id = s.id WHERE r.menu_id = ?', [orderItem.id], (err3, recipes) => {
+                if (!err3 && recipes.length > 0) {
+                  recipes.forEach(recipe => {
+                    const totalUsed = recipe.amount * orderItem.quantity;
+
+                    db.query('SELECT id, qty, min_stock, expiry_date FROM stock_items WHERE name = ? ORDER BY (expiry_date IS NULL) ASC, expiry_date ASC, id ASC', [recipe.name], (errBatches, batches) => {
+                      if (errBatches || batches.length === 0) {
+                        console.warn(`⚠️ Batch pengurutan FEFO tidak ditemukan untuk ${recipe.name}, fallback ke stock_id.`);
+                        const updateStockQuery = 'UPDATE stock_items SET qty = GREATEST(0, qty - ?), status = CASE WHEN GREATEST(0, qty - ?) <= 0 THEN \'Habis\' ELSE status END WHERE id = ?';
+                        db.query(updateStockQuery, [totalUsed, totalUsed, recipe.stock_id]);
+                        return;
+                      }
+
+                      let remainingNeed = totalUsed;
+                      const activeBatches = batches.filter(b => Number(b.qty) > 0);
+                      const targetBatches = activeBatches.length > 0 ? activeBatches : batches;
+
+                      for (let i = 0; i < targetBatches.length; i++) {
+                        const batch = targetBatches[i];
+                        const currentQty = Number(batch.qty) || 0;
+
+                        let deductAmount = Math.min(currentQty, remainingNeed);
+
+                        if (i === targetBatches.length - 1 && remainingNeed > 0) {
+                          deductAmount = remainingNeed;
+                        }
+
+                        const newQty = Math.max(0, currentQty - deductAmount);
+                        remainingNeed -= deductAmount;
+
+                        const minStock = Number(batch.min_stock) || 0;
+                        let newStatus = 'Aman';
+                        if (newQty <= 0) newStatus = 'Habis';
+                        else if (newQty <= minStock / 2) newStatus = 'Kritis';
+                        else if (newQty <= minStock) newStatus = 'Menipis';
+
+                        if (batch.expiry_date) {
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          const expiry = new Date(batch.expiry_date);
+                          expiry.setHours(0, 0, 0, 0);
+
+                          const diffTime = expiry.getTime() - today.getTime();
+                          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                          if (diffDays < 0) {
+                            newStatus = 'Kedaluwarsa';
+                          } else if (diffDays <= 3) {
+                            newStatus = 'Hampir Kadaluwarsa';
+                          }
+                        }
+
+                        db.query('UPDATE stock_items SET qty = ?, status = ? WHERE id = ?', [newQty, newStatus, batch.id], (errUpdate) => {
+                          if (errUpdate) console.error("❌ Gagal update stok batch FEFO:", errUpdate.message);
+                        });
+
+                        if (remainingNeed <= 0) break;
+                      }
                     });
-                } else {
-                  console.error("Gagal menambah points ke user:", errUpdate.message);
+                  });
                 }
               });
             }
+          });
+        });
+      }
+
+      if (userId) {
+        db.query('SELECT earning_rate, min_purchase FROM point_settings WHERE id = 1', (errSettings, settingsResults) => {
+          if (!errSettings && settingsResults.length > 0) {
+            const earningRate = Number(settingsResults[0].earning_rate) || 1000;
+            const minPurchase = Number(settingsResults[0].min_purchase) || 10000;
+
+            if (total >= minPurchase) {
+              const pointsEarned = Math.floor(total / earningRate);
+              if (pointsEarned > 0) {
+                db.query('UPDATE users SET points = points + ? WHERE id = ?', [pointsEarned, userId], (errUpdate) => {
+                  if (!errUpdate) {
+                    db.query('INSERT INTO point_history (user_id, customer_name, points, source) VALUES (?, ?, ?, ?)',
+                      [userId, customer, pointsEarned, `Transaksi Order: ${id}`], (errHist) => {
+                        if (errHist) console.error("Gagal mencatat point_history untuk transaksi:", errHist.message);
+                      });
+                  } else {
+                    console.error("Gagal menambah points ke user:", errUpdate.message);
+                  }
+                });
+              }
+            }
           }
-        }
-      });
-    }
-    
-    res.json({ message: 'Pesanan berhasil dibuat, stok telah dipotong', id: id });
+        });
+      }
+
+      res.json({ message: 'Pesanan berhasil dibuat, stok telah dipotong', id: id });
+    });
+  };
+
+  if (!voucherCode) {
+    return processOrder(null);
+  }
+
+  db.query('SELECT id, reward_id, reward_name, points_spent, status FROM redeem_history WHERE voucher_code = ? AND status = ? LIMIT 1', [voucherCode, 'active'], (err, redeemRows) => {
+    if (err) return res.status(500).json({ error: 'Gagal memvalidasi voucher', details: err.message });
+    if (!redeemRows.length) return res.status(400).json({ error: 'Voucher tidak ditemukan atau sudah digunakan' });
+
+    const redeem = redeemRows[0];
+    db.query('UPDATE redeem_history SET status = ? WHERE id = ?', ['used', redeem.id], (err) => {
+      if (err) return res.status(500).json({ error: 'Gagal memakai voucher', details: err.message });
+      processOrder({ voucher_code: voucherCode });
+    });
   });
 };
 
@@ -786,6 +805,7 @@ app.get('/api/users/:id/orders', authenticateToken, (req, res) => {
           cookingStartedAt: order.cooking_started_at,
           paymentProofUrl: order.payment_proof ? `${req.protocol}://${req.get('host')}${order.payment_proof}` : null,
           paymentProofStatus: order.payment_status || 'pending',
+          voucherCode: order.voucher_code || null,
           items: orderItems
         };
       });
