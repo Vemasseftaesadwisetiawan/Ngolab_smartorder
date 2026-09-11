@@ -555,6 +555,7 @@ app.get('/api/orders', authenticateToken, (req, res) => {
 });
 
 const handleCreateOrder = (req, res) => {
+  console.log('📥 Create order payload:', JSON.stringify(req.body));
   const { id, table, customer, items, total, paymentMethod, amountPaid, change, type, promoCode, userId, voucherCode } = req.body;
   const status = 'Menunggu';
 
@@ -1623,6 +1624,17 @@ app.get('/api/point-history', authenticateToken, (req, res) => {
   db.query('SELECT * FROM point_history ORDER BY created_at DESC', (err, results) => {
     if (err) {
       return res.status(500).json({ error: 'Gagal mengambil riwayat poin' });
+    }
+    res.json(results);
+  });
+});
+
+app.get('/api/user/vouchers', authenticateToken, (req, res) => {
+  const userId = req.user.id;
+
+  db.query('SELECT * FROM redeem_history WHERE user_id = ? ORDER BY created_at DESC', [userId], (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: 'Gagal mengambil data voucher' });
     }
     res.json(results);
   });
