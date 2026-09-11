@@ -555,6 +555,7 @@ app.get('/api/orders', authenticateToken, (req, res) => {
 });
 
 const handleCreateOrder = (req, res) => {
+  console.log('📥 Create order payload:', JSON.stringify(req.body));
   const { id, table, customer, items, total, paymentMethod, amountPaid, change, type, promoCode, userId, voucherCode } = req.body;
   const status = 'Menunggu';
 
