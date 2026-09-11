@@ -577,7 +577,10 @@ const handleCreateOrder = (req, res) => {
       if (err) return res.status(500).json({ error: 'Gagal menyimpan pesanan', details: err });
 
       if (items && items.length > 0) {
-        const itemValues = items.map(item => [id, item.id, item.name, item.price, item.quantity, item.note || '']);
+        const itemValues = items.map(item => {
+          const note = item.note || item.notes || item.special_note || item.remarks || item.catatan || '';
+          return [id, item.id, item.name, item.price, item.quantity, note];
+        });
         db.query('INSERT INTO order_items (order_id, menu_id, menu_name, price, quantity, note) VALUES ?', [itemValues], (err2) => {
           if (err2) console.error("Gagal menyimpan rincian pesanan:", err2);
 
