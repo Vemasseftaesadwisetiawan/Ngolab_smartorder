@@ -102,6 +102,19 @@ interface SalesReportProps {
 export function SalesReport({ orders }: SalesReportProps) {
   const [dateRange, setDateRange] = useState<'today' | 'yesterday' | 'week' | 'month' | 'all' | 'custom'>('month');
   const [customDate, setCustomDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [newCustomerCount, setNewCustomerCount] = useState<number>(0);
+
+  useEffect(() => {
+    const fetchNewCustomers = async () => {
+      try {
+        const res = await apiFetch(`/api/users/new-count?range=${dateRange}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setNewCustomerCount(data.count || 0);
+      } catch {}
+    };
+    fetchNewCustomers();
+  }, [dateRange]);
 
   const handlePrintReport = () => {
     window.print();
@@ -358,7 +371,7 @@ export function SalesReport({ orders }: SalesReportProps) {
                 </div>
                 <div>
                   <p className="text-[10px] font-semibold text-neutral-500">Pelanggan Baru</p>
-                  <h3 className="text-lg font-bold text-neutral-900">420</h3>
+                  <h3 className="text-lg font-bold text-neutral-900">{newCustomerCount}</h3>
                   <p className="text-[10px] text-neutral-500">35% retensi</p>
                 </div>
               </div>
