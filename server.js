@@ -572,9 +572,9 @@ const handleCreateOrder = (req, res) => {
     const finalTotal = total;
     const finalAmountPaid = voucher ? 0 : amountPaid;
     const finalChange = voucher ? 0 : change;
-    const queryOrder = `INSERT INTO orders (id, destination_label, customer_name, total, status, payment_method, amount_paid, change_amount, order_type, user_id, voucher_code, reward_name, points_spent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    const queryOrder = `INSERT INTO orders (id, destination_label, customer_name, total, status, payment_method, amount_paid, change_amount, order_type, user_id, voucher_code, reward_name, points_spent, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
-    db.query(queryOrder, [id, table, customer, finalTotal, status, paymentMethod, finalAmountPaid, finalChange, validOrderType, userId || null, voucher ? voucher.voucher_code : null, voucher ? voucher.reward_name : null, voucher ? voucher.points_spent : null], (err, result) => {
+      db.query(queryOrder, [id, table, customer, finalTotal, status, paymentMethod, finalAmountPaid, finalChange, validOrderType, userId || null, voucher ? voucher.voucher_code : null, voucher ? voucher.reward_name : null, voucher ? voucher.points_spent : null, typeof notes === 'string' ? notes : (typeof notes === 'undefined' ? '' : String(notes))], (err, result) => {
       if (err) return res.status(500).json({ error: 'Gagal menyimpan pesanan', details: err });
 
       if (items && items.length > 0) {
@@ -1646,6 +1646,35 @@ app.get('/api/users/:id/points', authenticateToken, (req, res) => {
       return res.status(404).json({ error: 'User tidak ditemukan' });
     }
     res.json({ points: results[0].points });
+  });
+});
+
+app.get('/api/users/new-count', authenticateToken, (req, res) => {
+  const { range } = req.query;
+  let dateFilter = '';
+  const params = ['user'];
+
+  if (range === 'today') {
+    dateFilter = 'AND DATE(created_at) = CURDATE()';
+  } else if (range === 'week') {
+    dateFilter = 'AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
+  } else if (range === 'month') {
+    dateFilter = 'AND created_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH)';
+  }
+
+  const joinedCol = 'created_at';
+  db.query(`SELECT COUNT(*) as count FROM users WHERE role = ? ${dateFilter}`, params, (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: 'Gagal menghitung pelanggan baru' });
+    }
+    res.json({ count: results[0]?.count || 0 });
+  });
+});
+
+app.post('/api/migrate/add-orders-notes', authenticateToken, (req, res) => {
+  db.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT NULL AFTER user_id", (err) => {
+    if (err) return res.status(500).json({ error: 'Gagal migrasi kolom notes', details: err.message });
+    res.json({ message: 'Kolom notes berhasil ditambahkan ke tabel orders' });
   });
 });
 
