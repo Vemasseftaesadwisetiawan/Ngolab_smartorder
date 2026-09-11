@@ -545,6 +545,7 @@ app.get('/api/orders', authenticateToken, (req, res) => {
           voucherCode: order.voucher_code || null,
           rewardName: order.reward_name || null,
           pointsSpent: order.points_spent || null,
+          notes: order.notes || null,
           items: orderItems
         };
       });
@@ -555,8 +556,7 @@ app.get('/api/orders', authenticateToken, (req, res) => {
 });
 
 const handleCreateOrder = (req, res) => {
-  console.log('📥 Create order payload:', JSON.stringify(req.body));
-  const { id, table, customer, items, total, paymentMethod, amountPaid, change, type, promoCode, userId, voucherCode } = req.body;
+  const { id, table, customer, items, total, paymentMethod, amountPaid, change, type, promoCode, userId, voucherCode, notes } = req.body;
   const status = 'Menunggu';
 
   let validOrderType = 'Dine-In';
@@ -865,6 +865,7 @@ app.get('/api/users/:id/orders', authenticateToken, (req, res) => {
           voucherCode: order.voucher_code || null,
           rewardName: order.reward_name || null,
           pointsSpent: order.points_spent || null,
+          notes: order.notes || null,
           items: orderItems
         };
       });
@@ -1672,9 +1673,14 @@ app.get('/api/users/new-count', authenticateToken, (req, res) => {
 });
 
 app.post('/api/migrate/add-orders-notes', authenticateToken, (req, res) => {
-  db.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT NULL AFTER user_id", (err) => {
-    if (err) return res.status(500).json({ error: 'Gagal migrasi kolom notes', details: err.message });
-    res.json({ message: 'Kolom notes berhasil ditambahkan ke tabel orders' });
+  db.query('SHOW COLUMNS FROM orders LIKE ?', ['notes'], (err, cols) => {
+    if (err) return res.status(500).json({ error: 'Gagal memeriksa skema orders', details: err.message });
+    if (cols.length > 0) return res.json({ message: 'Kolom notes sudah ada' });
+
+    db.query('ALTER TABLE orders ADD COLUMN notes TEXT DEFAULT NULL AFTER user_id', (err2) => {
+      if (err2) return res.status(500).json({ error: 'Gagal menambah kolom notes', details: err2.message });
+      res.json({ message: 'Kolom notes berhasil ditambahkan ke tabel orders' });
+    });
   });
 });
 
