@@ -1629,6 +1629,17 @@ app.get('/api/point-history', authenticateToken, (req, res) => {
   });
 });
 
+app.get('/api/user/vouchers', authenticateToken, (req, res) => {
+  const userId = req.user.id;
+
+  db.query('SELECT * FROM redeem_history WHERE user_id = ? ORDER BY created_at DESC', [userId], (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: 'Gagal mengambil data voucher' });
+    }
+    res.json(results);
+  });
+});
+
 app.get('/api/users/:id/points', authenticateToken, (req, res) => {
   db.query('SELECT points FROM users WHERE id = ?', [req.params.id], (err, results) => {
     if (err || results.length === 0) {
