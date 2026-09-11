@@ -585,24 +585,27 @@ const handleCreateOrder = (req, res) => {
           if (err2) console.error("Gagal menyimpan rincian pesanan:", err2);
 
           if (promoCode) {
-            db.query('SELECT usage_count, max_usage, status FROM promos WHERE code = ? LIMIT 1', [promoCode], (errPromo, promoRows) => {
-              if (!errPromo && promoRows.length > 0) {
-                const promo = promoRows[0];
-                const currentUsage = Number(promo.usage_count || 0);
-                const maxUsage = promo.max_usage ? Number(promo.max_usage) : null;
-                const isValid = promo.status === 'Active' && (maxUsage === null || currentUsage < maxUsage);
-              
-                if (isValid) {
-                  db.query('UPDATE promos SET usage_count = usage_count + 1 WHERE code = ?', [promoCode], (errUpdate) => {
-                    if (errUpdate) console.error("Gagal memperbarui kuota penggunaan promo:", errUpdate.message);
-                    else console.log(`✅ Kuota promo ${promoCode} berhasil ditambah 1.`);
-                  });
-                } else {
-                  console.warn(`⚠️ Promo ${promoCode} tidak valid atau kuota habis.`);
-                }
-              } else {
-                console.warn(`⚠️ Promo ${promoCode} tidak ditemukan.`);
+            const promoUpdate = `UPDATE promos SET usage_count = usage_count + 1 WHERE code = ? AND status = 'Active' AND (max_usage IS NULL OR usage_count < max_usage)`;
+            db.query(promoUpdate, [promoCode], (errUpdate, updateResult) => {
+              if (errUpdate) return res.status(500).json({ error: 'Gagal memperbarui kuota penggunaan promo', details: errUpdate.message });
+              if (!updateResult.affectedRows) {
+                return res.status(400).json({ error: 'Promo tidak valid atau kuota habis' });
               }
+
+              db.query('SELECT usage_count, max_usage, status FROM promos WHERE code = ? LIMIT 1', [promoCode], (errPromo, promoRows) => {
+                if (!errPromo && promoRows.length > 0) {
+                  const promo = promoRows[0];
+                  const currentUsage = Number(promo.usage_count || 0);
+                  const maxUsage = promo.max_usage ? Number(promo.max_usage) : null;
+                  const isValid = promo.status === 'Active' && (maxUsage === null || currentUsage <= maxUsage);
+
+                  if (!isValid) {
+                    return res.status(400).json({ error: 'Promo tidak valid atau kuota habis' });
+                  }
+                } else {
+                  return res.status(400).json({ error: 'Promo tidak ditemukan' });
+                }
+              });
             });
           }
 
