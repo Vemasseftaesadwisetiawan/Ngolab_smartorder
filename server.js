@@ -120,7 +120,8 @@ const db = mysql.createPool({
   port: Number(process.env.DB_PORT) || 3306,
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  timezone: '+07:00'
 });
 
 db.getConnection((err, conn) => {
@@ -289,7 +290,7 @@ app.delete('/api/stock/:id', authenticateToken, (req, res) => {
 const FRIEND_API_URL = process.env.FRIEND_API_URL || 'http://localhost:3001/api/menu';
 
 app.get('/api/menu', (req, res) => {
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date(Date.now() + (3600000 * 7)).toISOString().split('T')[0];
   const queryMenu = `SELECT * FROM menu_items WHERE displayed = 1 AND (availability_type = 'permanent' OR (availability_type = 'scheduled' AND available_from <= ? AND available_to >= ?)) ORDER BY created_at DESC`;
   const queryRecipes = 'SELECT * FROM menu_recipes';
 
@@ -497,9 +498,11 @@ const fmtDateTime = (val) => {
   const d = val ? new Date(val) : null;
   if (!d || isNaN(d.getTime())) return { date: '-', time: '-' };
   const pad = (n) => String(n).padStart(2, '0');
+  const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+  const wib = new Date(utc + (3600000 * 7));
   return {
-    date: `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`,
-    time: `${pad(d.getHours())}:${pad(d.getMinutes())}`
+    date: `${wib.getFullYear()}-${pad(wib.getMonth()+1)}-${pad(wib.getDate())}`,
+    time: `${pad(wib.getHours())}:${pad(wib.getMinutes())}`
   };
 };
 
