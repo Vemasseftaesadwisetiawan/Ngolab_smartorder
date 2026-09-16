@@ -519,6 +519,9 @@ export function TransactionHistory({ orders, searchTerm = '', onVerifyPaymentPro
                       {(item as any).note && (
                         <p className="text-[11px] text-neutral-500 italic">Catatan: {(item as any).note}</p>
                       )}
+                      {!(item as any).note && selectedTrx.notes && (
+                        <p className="text-[11px] text-neutral-500 italic">Catatan: {selectedTrx.notes}</p>
+                      )}
                     </div>
                   ))}
                 </div>

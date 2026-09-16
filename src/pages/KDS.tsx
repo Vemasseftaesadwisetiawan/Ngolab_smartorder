@@ -237,6 +237,14 @@ export function KDS({ orders, setOrders, onUpdateStatus }: KDSProps) {
                                 </p>
                               </div>
                             )}
+                            {!item.note && order.notes && (
+                              <div className="flex items-start gap-1 p-1.5 bg-rose-50 rounded-lg border border-rose-100">
+                                <AlertCircle size={12} className="text-rose-600 mt-0.5 shrink-0" />
+                                <p className="text-[10px] text-rose-800 font-bold leading-tight uppercase italic">
+                                  {order.notes}
+                                </p>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
