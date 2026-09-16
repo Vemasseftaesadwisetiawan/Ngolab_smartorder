@@ -51,6 +51,7 @@ interface OrderItem {
   name: string;
   quantity: number;
   price: number;
+  note?: string;
 }
 
 interface Order {
@@ -506,13 +507,18 @@ export function TransactionHistory({ orders, searchTerm = '', onVerifyPaymentPro
 
               <div className="space-y-3">
                 <p className="text-xs text-neutral-400 uppercase font-bold tracking-wider">Item Pesanan</p>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {selectedTrx.items.map((item, idx) => (
-                    <div key={idx} className="flex justify-between text-sm">
-                      <span className="text-neutral-600">
-                        <span className="font-bold text-neutral-900">{item.quantity}x</span> {item.name}
-                      </span>
-                      <span className="text-neutral-900 font-medium">Rp {((item.price || 0) * item.quantity).toLocaleString()}</span>
+                    <div key={idx} className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-neutral-600">
+                          <span className="font-bold text-neutral-900">{item.quantity}x</span> {item.name}
+                        </span>
+                        <span className="text-neutral-900 font-medium">Rp {((item.price || 0) * item.quantity).toLocaleString()}</span>
+                      </div>
+                      {(item as any).note && (
+                        <p className="text-[11px] text-neutral-500 italic">Catatan: {(item as any).note}</p>
+                      )}
                     </div>
                   ))}
                 </div>
