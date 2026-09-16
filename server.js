@@ -13,13 +13,13 @@ import sharp from 'sharp';
 dotenv.config();
 
 const __filename = path.resolve(process.argv[1]);
-const __dirname = path.dirname(__filename);
+const __dirname = process.cwd();
 
 const app = express();
 const port = process.env.PORT || 5014;
 const JWT_SECRET = process.env.JWT_SECRET || 'ngolab_smartorder_jwt_secret_key_2026_super_secure';
 
-const uploadDir = path.join(__dirname, 'uploads');
+const uploadDir = path.join(process.cwd(), 'uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir);
 }
@@ -49,7 +49,7 @@ const compressImage = async (req, res, next) => {
   const originalPath = req.file.path;
   const filenameWithoutExt = path.basename(req.file.filename, path.extname(req.file.filename));
   const newFilename = `${filenameWithoutExt}.webp`;
-  const newPath = path.join(__dirname, 'uploads', newFilename);
+  const newPath = path.join(process.cwd(), 'uploads', newFilename);
 
   try {
     await sharp(originalPath)
@@ -82,7 +82,7 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -1711,9 +1711,9 @@ app.post('/api/users/:id/points', authenticateToken, (req, res) => {
   });
 });
 
-app.use(express.static(path.join(__dirname, 'dist')));
+app.use(express.static(path.join(process.cwd(), 'dist')));
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  res.sendFile(path.join(process.cwd(), 'dist', 'index.html'));
 });
 
 app.listen(port, () => {
