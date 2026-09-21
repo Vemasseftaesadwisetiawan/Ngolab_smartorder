@@ -16,6 +16,8 @@ const __filename = path.resolve(process.argv[1]);
 const __dirname = process.cwd();
 
 const app = express();
+// ponytail: 1 hop = panel nginx. Gives real client IP (Cloudflare) + https scheme.
+app.set('trust proxy', 1);
 const port = process.env.PORT || 5014;
 const JWT_SECRET = process.env.JWT_SECRET || 'ngolab_smartorder_jwt_secret_key_2026_super_secure';
 
@@ -290,7 +292,7 @@ const FRIEND_API_URL = process.env.FRIEND_API_URL || 'http://localhost:3001/api/
 
 app.get('/api/menu', (req, res) => {
   const today = new Date(Date.now() + (3600000 * 7)).toISOString().split('T')[0];
-  const queryMenu = `SELECT * FROM menu_items WHERE displayed = 1 AND (availability_type = 'permanent' OR (availability_type = 'scheduled' AND available_from <= ? AND available_to >= ?)) ORDER BY created_at DESC`;
+  const queryMenu = `SELECT * FROM menu_items WHERE (availability_type = 'permanent' OR (availability_type = 'scheduled' AND available_from <= ? AND available_to >= ?)) ORDER BY created_at DESC`;
   const queryRecipes = 'SELECT * FROM menu_recipes';
 
   db.query(queryMenu, [today, today], (err, menus) => {
