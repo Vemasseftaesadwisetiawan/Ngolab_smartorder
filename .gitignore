@@ -6,3 +6,10 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Runtime state / deploy artifacts — generated on the panel, not source.
+# Keeps deploy drift out of git and stops git checkout/reset from deleting
+# live uploads (menu images are referenced by menu_items.image_url).
+uploads/
+releases/
+current
