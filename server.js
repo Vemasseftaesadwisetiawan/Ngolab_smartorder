@@ -16,6 +16,8 @@ const __filename = path.resolve(process.argv[1]);
 const __dirname = process.cwd();
 
 const app = express();
+// ponytail: 1 hop = panel nginx. Gives real client IP (Cloudflare) + https scheme.
+app.set('trust proxy', 1);
 const port = process.env.PORT || 5014;
 const JWT_SECRET = process.env.JWT_SECRET || 'ngolab_smartorder_jwt_secret_key_2026_super_secure';
 
