@@ -4,7 +4,6 @@ import {
   UtensilsCrossed, 
   History, 
   Users, 
-  Settings, 
   BookOpen, 
   Package, 
   TicketPercent, 
@@ -18,7 +17,8 @@ import {
   QrCode,
   ShoppingCart,
   ChefHat,
-  CookingPot
+  CookingPot,
+  UserCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -48,7 +48,7 @@ const navItems = [
   { id: 'ratings', label: 'Rating & Ulasan', icon: Star, roles: ['Admin', 'Kasir', 'Koki'] },
   { id: 'points', label: 'Kelola Poin', icon: Coins, roles: ['Admin'] },
   { id: 'users', label: 'Kelola User', icon: Users, roles: ['Admin'] },
-  { id: 'settings', label: 'Pengaturan', icon: Settings, roles: ['Admin'] },
+  { id: 'profile', label: 'Profil', icon: UserCircle, roles: ['Admin', 'Kasir', 'Koki'] },
 ];
 
 export function Sidebar({ activePage, setActivePage, collapsed, setCollapsed, onLogout, userRole }: SidebarProps) {

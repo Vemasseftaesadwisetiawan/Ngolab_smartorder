@@ -32,6 +32,9 @@ export function Login({ onLogin }: LoginProps) {
         if (data.token) {
           setAuthToken(data.token);
         }
+        if (data.user) {
+          localStorage.setItem('smartorder_user', JSON.stringify(data.user));
+        }
         toast.success(data.message || `Selamat datang, ${data.user?.name}!`);
         onLogin(data.user.role);
       } else {
@@ -79,7 +82,7 @@ export function Login({ onLogin }: LoginProps) {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10 h-11 border-stone-200 focus:ring-orange-500 focus:border-orange-500 rounded-lg transition-all"
+                    className="pl-10 h-11 border-stone-200 focus:ring-orange-500 focus:border-orange-500 rounded-lg transition-all bg-white text-stone-900 placeholder:text-stone-400 dark:bg-white dark:text-stone-900 dark:placeholder:text-stone-400"
                   />
                 </div>
               </div>
@@ -96,7 +99,7 @@ export function Login({ onLogin }: LoginProps) {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 h-11 border-stone-200 focus:ring-orange-500 focus:border-orange-500 rounded-lg transition-all"
+                    className="pl-10 h-11 border-stone-200 focus:ring-orange-500 focus:border-orange-500 rounded-lg transition-all bg-white text-stone-900 placeholder:text-stone-400 dark:bg-white dark:text-stone-900 dark:placeholder:text-stone-400"
                   />
                 </div>
               </div>

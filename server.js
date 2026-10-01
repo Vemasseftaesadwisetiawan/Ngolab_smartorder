@@ -496,8 +496,8 @@ function mapFrontendStatusToDb(feStatus) {
 }
 
 const fmtDateTime = (val) => {
-  const d = val ? new Date(val) : null;
-  if (!d || isNaN(d.getTime())) return { date: '-', time: '-' };
+  const d = toTrueInstant(val);
+  if (!d) return { date: '-', time: '-' };
   const pad = (n) => String(n).padStart(2, '0');
   const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
   const wib = new Date(utc + (3600000 * 7));
@@ -506,6 +506,30 @@ const fmtDateTime = (val) => {
     time: `${pad(wib.getHours())}:${pad(wib.getMinutes())}`
   };
 };
+
+// Koreksi jam DB yang tidak UTC (mis. panel Kroombox = UTC-7).
+// Offset diukur dinamis saat startup & tiap jam → aman untuk env mana pun (XAMPP lokal WIB, panel UTC-7, dst).
+let dbClockOffsetMs = 0; // (jam DB ditafsir +07:00 oleh pool) − jam nyata
+const toTrueInstant = (val) => {
+  if (!val) return null;
+  const d = val instanceof Date ? val : new Date(val);
+  if (isNaN(d.getTime())) return null;
+  return new Date(d.getTime() - dbClockOffsetMs);
+};
+const measureDbClockOffset = () => {
+  db.query('SELECT NOW() AS dbnow', (err, rows) => {
+    if (err || !rows || !rows.length) {
+      console.warn('⚠️ Gagal mengukur jam DB:', err ? err.message : 'kosong');
+      return;
+    }
+    const dbNow = new Date(rows[0].dbnow);
+    if (isNaN(dbNow.getTime())) return;
+    dbClockOffsetMs = dbNow.getTime() - Date.now();
+    console.log(`🕒 DB clock offset: ${Math.round(dbClockOffsetMs / 60000)} menit (dipakai untuk konversi WIB)`);
+  });
+};
+measureDbClockOffset();
+setInterval(measureDbClockOffset, 60 * 60 * 1000);
 
 app.get('/api/orders', authenticateToken, (req, res) => {
   const queryOrders = 'SELECT * FROM orders ORDER BY created_at DESC';
@@ -540,7 +564,7 @@ app.get('/api/orders', authenticateToken, (req, res) => {
           type: order.order_type,
           time,
           date,
-          cookingStartedAt: order.cooking_started_at,
+          cookingStartedAt: toTrueInstant(order.cooking_started_at) ? toTrueInstant(order.cooking_started_at).toISOString() : order.cooking_started_at,
           paymentProofUrl: order.payment_proof ? `${req.protocol}://${req.get('host')}${order.payment_proof}` : null,
           paymentProofStatus: order.payment_status || 'pending',
           voucherCode: order.voucher_code || null,
@@ -860,7 +884,7 @@ app.get('/api/users/:id/orders', authenticateToken, (req, res) => {
           type: order.order_type,
           time,
           date,
-          cookingStartedAt: order.cooking_started_at,
+          cookingStartedAt: toTrueInstant(order.cooking_started_at) ? toTrueInstant(order.cooking_started_at).toISOString() : order.cooking_started_at,
           paymentProofUrl: order.payment_proof ? `${req.protocol}://${req.get('host')}${order.payment_proof}` : null,
           paymentProofStatus: order.payment_status || 'pending',
           voucherCode: order.voucher_code || null,

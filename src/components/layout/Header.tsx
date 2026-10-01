@@ -21,9 +21,11 @@ interface HeaderProps {
   searchTerm: string;
   setSearchTerm: (term: string) => void;
   userRole: string | null;
+  onNavigateProfile?: () => void;
+  onLogout?: () => void;
 }
 
-export function Header({ title, searchTerm, setSearchTerm, userRole }: HeaderProps) {
+export function Header({ title, searchTerm, setSearchTerm, userRole, onNavigateProfile, onLogout }: HeaderProps) {
   const getUserName = () => {
     return userRole || 'Pengguna';
   };
@@ -85,10 +87,19 @@ export function Header({ title, searchTerm, setSearchTerm, userRole }: HeaderPro
               <DropdownMenuLabel className="text-stone-900 font-bold">Akun Saya</DropdownMenuLabel>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="cursor-pointer hover:bg-orange-50 hover:text-orange-700 transition-colors">Profil</DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer hover:bg-orange-50 hover:text-orange-700 transition-colors">Pengaturan</DropdownMenuItem>
+            <DropdownMenuItem 
+              className="cursor-pointer hover:bg-orange-50 hover:text-orange-700 transition-colors"
+              onClick={onNavigateProfile}
+            >Profil</DropdownMenuItem>
+            <DropdownMenuItem 
+              className="cursor-pointer hover:bg-orange-50 hover:text-orange-700 transition-colors"
+              onClick={onNavigateProfile}
+            >Pengaturan</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="cursor-pointer text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors">Keluar</DropdownMenuItem>
+            <DropdownMenuItem 
+              className="cursor-pointer text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
+              onClick={onLogout}
+            >Keluar</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

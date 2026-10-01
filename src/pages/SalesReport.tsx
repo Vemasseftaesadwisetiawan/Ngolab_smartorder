@@ -25,6 +25,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from '@/lib/utils';
+import { apiFetch } from '@/lib/apiFetch';
 import { 
   BarChart, 
   Bar, 
@@ -39,28 +40,6 @@ import {
   AreaChart,
   Area
 } from 'recharts';
-
-const categoryData = [
-  { name: 'Bakso', value: 65, color: '#ea580c' },
-  { name: 'Mie Ayam', value: 20, color: '#f97316' },
-  { name: 'Minuman', value: 10, color: '#fb923c' },
-  { name: 'Lainnya', value: 5, color: '#fdba74' },
-];
-
-const hourlyData = [
-  { hour: '10:00', orders: 5 },
-  { hour: '11:00', orders: 12 },
-  { hour: '12:00', orders: 45 },
-  { hour: '13:00', orders: 38 },
-  { hour: '14:00', orders: 15 },
-  { hour: '15:00', orders: 10 },
-  { hour: '16:00', orders: 18 },
-  { hour: '17:00', orders: 25 },
-  { hour: '18:00', orders: 48 },
-  { hour: '19:00', orders: 52 },
-  { hour: '20:00', orders: 30 },
-  { hour: '21:00', orders: 12 },
-];
 
 const bestSellers = [
   { name: 'Bakso Malang Spesial', sold: 452, revenue: 11300000, trend: '+12%' },
@@ -120,56 +99,82 @@ export function SalesReport({ orders }: SalesReportProps) {
     window.print();
   };
 
-  // Helper to parse date string "DD/MM/YYYY" or "DD MMM YYYY"
-  const parseDate = (dateStr?: string) => {
-    if (!dateStr) return new Date();
-    // Try DD/MM/YYYY
+  // Helper to parse date string: "YYYY-MM-DD" (dari backend) atau "DD/MM/YYYY"
+  const parseDate = (dateStr?: string): Date | null => {
+    if (!dateStr) return null;
+    // YYYY-MM-DD (format backend fmtDateTime)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    }
+    // DD/MM/YYYY (format id-ID)
     if (dateStr.includes('/')) {
       const [day, month, year] = dateStr.split('/').map(Number);
       return new Date(year, month - 1, day);
     }
-    // Fallback or other formats could be added here
-    return new Date();
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? null : d;
   };
 
   const filteredOrders = useMemo(() => {
-    const now = new Date();
-    now.setHours(0,0,0,0);
-    const todayStr = now.toLocaleDateString('id-ID');
-    
-    const yesterday = new Date(now);
-    yesterday.setDate(now.getDate() - 1);
-    const yesterdayStr = yesterday.toLocaleDateString('id-ID');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    const weekAgo = new Date(now);
-    weekAgo.setDate(now.getDate() - 7);
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
 
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const weekAgo = new Date(today);
+    weekAgo.setDate(today.getDate() - 6);
+
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
 
     return orders.filter(order => {
-      const orderDateStr = order.date || todayStr;
-      const orderDate = parseDate(orderDateStr);
+      if (dateRange === 'all') return true;
+      const orderDate = parseDate(order.date);
+      if (!orderDate) return false;
 
-      if (dateRange === 'today') return orderDateStr === todayStr;
-      if (dateRange === 'yesterday') return orderDateStr === yesterdayStr;
-      if (dateRange === 'week') return orderDate >= weekAgo;
-      if (dateRange === 'month') return orderDate >= monthStart;
+      if (dateRange === 'today') return orderDate.getTime() === today.getTime();
+      if (dateRange === 'yesterday') return orderDate.getTime() === yesterday.getTime();
+      if (dateRange === 'week') return orderDate >= weekAgo && orderDate <= today;
+      if (dateRange === 'month') return orderDate >= monthStart && orderDate <= today;
       if (dateRange === 'custom') {
-        const selected = new Date(customDate);
-        selected.setHours(0,0,0,0);
-        const selectedStr = selected.toLocaleDateString('id-ID');
-        return orderDateStr === selectedStr;
+        const selected = new Date(customDate + 'T00:00:00');
+        return orderDate.getTime() === selected.getTime();
       }
       return true;
     });
   }, [orders, dateRange, customDate]);
 
-  const today = new Date().toLocaleDateString('id-ID');
-  const todayOrders = useMemo(() => orders.filter(o => (o.date || today) === today), [orders, today]);
+  const todayOrders = useMemo(() => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return orders.filter(o => parseDate(o.date)?.getTime() === now.getTime());
+  }, [orders]);
   const todayRevenue = todayOrders.reduce((sum, o) => sum + o.total, 0);
 
   const filteredRevenue = filteredOrders.reduce((sum, order) => sum + order.total, 0);
   const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
+
+  // Jam sibuk: agregasi nyata dari filteredOrders berdasarkan jam order.time ("HH:MM")
+  const derivedHourlyData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    filteredOrders.forEach(order => {
+      if (!order.time) return;
+      const hour = String(order.time).slice(0, 2);
+      if (!/^\d{2}$/.test(hour)) return;
+      counts[hour] = (counts[hour] || 0) + 1;
+    });
+    const hours = Object.keys(counts).sort();
+    if (hours.length === 0) return [];
+    const first = Math.min(...hours.map(Number));
+    const last = Math.max(...hours.map(Number));
+    const rows: { hour: string; orders: number }[] = [];
+    for (let h = first; h <= last; h++) {
+      const key = String(h).padStart(2, '0');
+      rows.push({ hour: `${key}:00`, orders: counts[key] || 0 });
+    }
+    return rows;
+  }, [filteredOrders]);
 
   const derivedBestSellers = useMemo(() => {
     const counts: Record<string, { sold: number, revenue: number }> = {};
@@ -438,7 +443,7 @@ export function SalesReport({ orders }: SalesReportProps) {
             <CardContent>
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={hourlyData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                  <BarChart data={derivedHourlyData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f5f5f4" />
                     <XAxis dataKey="hour" axisLine={false} tickLine={false} fontSize={10} interval={1} />
                     <YAxis axisLine={false} tickLine={false} fontSize={10} />
@@ -450,9 +455,15 @@ export function SalesReport({ orders }: SalesReportProps) {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg text-[11px] text-blue-700 leading-relaxed italic">
-                Insight: Penjualan tertinggi terjadi pada jam makan siang dan makan malam.
-              </div>
+              {derivedHourlyData.length > 0 ? (
+                <div className="mt-4 p-3 bg-blue-50 rounded-lg text-[11px] text-blue-700 leading-relaxed italic">
+                  Insight: Jam paling sibuk adalah {derivedHourlyData.reduce((a, b) => b.orders > a.orders ? b : a).hour} dengan {derivedHourlyData.reduce((a, b) => b.orders > a.orders ? b : a).orders} pesanan.
+                </div>
+              ) : (
+                <div className="mt-4 p-3 bg-stone-50 rounded-lg text-[11px] text-stone-500 leading-relaxed italic">
+                  Belum ada data pesanan untuk periode ini.
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -577,7 +588,7 @@ export function SalesReport({ orders }: SalesReportProps) {
                       #{order.id}
                     </TableCell>
                     <TableCell className="text-stone-700 font-medium">{order.table || 'Walk-in'}</TableCell>
-                    <TableCell className="text-stone-500 text-xs">{order.date || today}, {order.time}</TableCell>
+                    <TableCell className="text-stone-500 text-xs">{order.date || '-'} {order.time}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={cn(
                         "font-bold text-[10px] border-stone-200",
@@ -711,7 +722,7 @@ export function SalesReport({ orders }: SalesReportProps) {
                 <tr key={order.id} className="border-b border-stone-200">
                   <td className="py-1.5 px-2 font-mono border-r border-stone-200">#{order.id}</td>
                   <td className="py-1.5 px-2 font-medium border-r border-stone-200">{order.table || 'Walk-in'}</td>
-                  <td className="py-1.5 px-2 text-stone-600 border-r border-stone-200">{order.date || today}, {order.time}</td>
+                  <td className="py-1.5 px-2 text-stone-600 border-r border-stone-200">{order.date || '-'} {order.time}</td>
                   <td className="py-1.5 px-2 border-r border-stone-200">{order.paymentMethod || 'Tunai'}</td>
                   <td className="py-1.5 px-2 font-semibold text-green-700 border-r border-stone-200">{order.status}</td>
                   <td className="py-1.5 px-2 text-right font-bold">Rp {order.total.toLocaleString()}</td>

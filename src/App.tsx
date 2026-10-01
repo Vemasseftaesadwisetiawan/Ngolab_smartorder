@@ -19,8 +19,8 @@ import { SalesReport } from '@/pages/SalesReport';
 import { UserManagement } from '@/pages/UserManagement';
 import { RatingManagement } from '@/pages/RatingManagement';
 import { PointsManagement } from '@/pages/PointsManagement';
-import { Settings } from '@/pages/Settings';
 import { Login } from '@/pages/Login';
+import { Profile } from '@/pages/Profile';
 import { RatingInput } from '@/pages/RatingInput';
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
@@ -281,6 +281,8 @@ export default function App() {
     localStorage.setItem('smartorder_role', role);
     console.log('Saved to localStorage:', localStorage.getItem('smartorder_role'));
 
+    // Simpan user lengkap untuk halaman Profil (ditulis oleh Login via onLoginUser)
+    // (kompatibilitas: kalau sudah ada, biarkan)
     // Role-specific landing page
     if (role === 'Kasir') {
       setActivePage('pos');
@@ -303,6 +305,9 @@ export default function App() {
 
   const getPageTitle = (page: string) => {
     switch (page) {
+      case 'profile': return 'Profil Saya';
+      case 'pos': return 'POS Terminal';
+      case 'kds': return 'Kitchen Display (KDS)';
       case 'dashboard': return 'Dashboard';
       case 'menu-catalog': return 'Katalog Menu';
       case 'manage-menu': return 'Kelola Menu';
@@ -315,7 +320,6 @@ export default function App() {
       case 'users': return 'Kelola User';
       case 'points': return 'Kelola Poin & Rewards';
       case 'ratings': return 'Rating & Ulasan';
-      case 'settings': return 'Pengaturan Umum';
       default: return 'Dashboard';
     }
   };
@@ -353,6 +357,8 @@ export default function App() {
               searchTerm={globalSearchTerm}
               setSearchTerm={setGlobalSearchTerm}
               userRole={userRole}
+              onNavigateProfile={() => setActivePage('profile')}
+              onLogout={handleLogout}
             />
             
             <main className="flex-1 overflow-y-auto p-6">
@@ -441,8 +447,8 @@ function MainContent({
       return canAccess(['Admin']) ? <PointsManagement /> : <div className="text-center py-20 text-stone-500">Anda tidak memiliki akses ke halaman ini.</div>;
     case 'ratings':
       return canAccess(['Admin', 'Kasir', 'Koki']) ? <RatingManagement /> : <div className="text-center py-20 text-stone-500">Anda tidak memiliki akses ke halaman ini.</div>;
-    case 'settings': 
-      return canAccess(['Admin']) ? <Settings /> : <div className="text-center py-20 text-stone-500">Anda tidak memiliki akses ke halaman ini.</div>;
+    case 'profile':
+      return <Profile userRole={userRole} />;
     default: 
       return <Dashboard menuItems={menuItems} orders={orders} stockItems={stockItems} />;
   }

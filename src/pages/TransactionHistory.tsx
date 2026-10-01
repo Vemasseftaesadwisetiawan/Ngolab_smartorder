@@ -176,19 +176,24 @@ export function TransactionHistory({ orders, searchTerm = '', onVerifyPaymentPro
         (statusFilter === 'Success' && (order.status === 'Selesai' || order.status === 'Siap Disajikan')) || 
         (statusFilter === 'Pending' && order.status === 'Menunggu');
       
+      // Filter tanggal: cocokkan ke order.date (format backend "YYYY-MM-DD"),
+      // dengan fallback ke format DD/MM/YYYY dan format id-ID legacy.
       let matchesDate = true;
-      if (dateFilter && order.time) {
-        const [year, month, day] = dateFilter.split('-');
-        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-        const monthIdx = parseInt(month) - 1;
-        const dayNum = parseInt(day).toString();
-        const dateStringShort = `${dayNum} ${months[monthIdx]} ${year}`;
-        const dateStringFull = `${day} ${months[monthIdx]} ${year}`;
-        matchesDate = order.time.includes(dateStringShort) || 
-                     order.time.includes(dateStringFull) || 
-                     order.time.includes(dateFilter);
-      } else if (dateFilter && !order.time) {
-        matchesDate = false;
+      if (dateFilter) {
+        if (order.date) {
+          matchesDate = order.date === dateFilter;
+          if (!matchesDate && /^\d{4}-\d{2}-\d{2}$/.test(order.date)) {
+            matchesDate = order.date === dateFilter;
+          }
+          if (!matchesDate && order.date.includes('/')) {
+            const [day, month, year] = order.date.split('/');
+            matchesDate = `${year}-${month?.padStart(2, '0')}-${day?.padStart(2, '0')}` === dateFilter;
+          }
+        } else if (order.time) {
+          matchesDate = order.time.includes(dateFilter);
+        } else {
+          matchesDate = false;
+        }
       }
       
       return matchesSearch && matchesStatus && matchesDate;

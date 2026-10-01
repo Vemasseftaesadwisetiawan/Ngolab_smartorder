@@ -181,7 +181,7 @@ export function MenuCatalog({
     const matchesSearch = item.name.toLowerCase().includes(effectiveSearchTerm.toLowerCase()) || 
                           item.description.toLowerCase().includes(effectiveSearchTerm.toLowerCase());
     return matchesCategory && matchesSearch;
-  });
+  }).sort((a, b) => Number(b.displayed !== false) - Number(a.displayed !== false));
 
   const today = new Date().toISOString().split('T')[0];
   const scheduledToday = filteredItems.filter(item => 

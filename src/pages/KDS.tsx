@@ -35,6 +35,7 @@ interface Order {
   cookingStartedAt?: string;
   createdAt?: string;
   voucherCode?: string;
+  notes?: string;
   rewardName?: string;
   pointsSpent?: number;
 }
@@ -227,20 +228,20 @@ export function KDS({ orders, setOrders, onUpdateStatus }: KDSProps) {
                           <span className="flex items-center justify-center font-extrabold text-sm text-stone-900 bg-stone-100 w-6 h-6 rounded-md shrink-0">
                             {item.quantity}x
                           </span>
-                          <div className="flex flex-col gap-1 min-w-0">
+                          <div className="flex flex-col gap-1 min-w-0 max-w-full overflow-hidden">
                             <span className="font-semibold text-sm text-stone-800 break-words leading-tight">{item.name}</span>
                             {item.note && (
-                              <div className="flex items-start gap-1 p-1.5 bg-rose-50 rounded-lg border border-rose-100">
+                              <div className="flex items-start gap-1 p-1.5 bg-rose-50 rounded-lg border border-rose-100 min-w-0">
                                 <AlertCircle size={12} className="text-rose-600 mt-0.5 shrink-0" />
-                                <p className="text-[10px] text-rose-800 font-bold leading-tight uppercase italic">
+                                <p className="text-[10px] text-rose-800 font-bold leading-tight uppercase italic break-words whitespace-pre-wrap overflow-hidden">
                                   {item.note}
                                 </p>
                               </div>
                             )}
                             {!item.note && order.notes && (
-                              <div className="flex items-start gap-1 p-1.5 bg-rose-50 rounded-lg border border-rose-100">
+                              <div className="flex items-start gap-1 p-1.5 bg-rose-50 rounded-lg border border-rose-100 min-w-0">
                                 <AlertCircle size={12} className="text-rose-600 mt-0.5 shrink-0" />
-                                <p className="text-[10px] text-rose-800 font-bold leading-tight uppercase italic">
+                                <p className="text-[10px] text-rose-800 font-bold leading-tight uppercase italic break-words whitespace-pre-wrap overflow-hidden">
                                   {order.notes}
                                 </p>
                               </div>

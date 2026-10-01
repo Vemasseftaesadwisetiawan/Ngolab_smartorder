@@ -88,8 +88,7 @@ export function POS({ menuItems, setMenuItems, setOrders, stockItems, setStockIt
   const subtotal = cart.reduce((sum, item) => sum + ((item.promoPrice || item.price) * item.quantity), 0);
   const discountAmount = discountAmountState;
   const subtotalAfterDiscount = Math.max(0, subtotal - discountAmount);
-  const tax = subtotalAfterDiscount * 0.1;
-  const total = subtotalAfterDiscount + tax;
+  const total = subtotalAfterDiscount;
 
   const handleApplyPromo = async () => {
     const inputCode = promoCode.trim().toUpperCase();
@@ -173,10 +172,16 @@ export function POS({ menuItems, setMenuItems, setOrders, stockItems, setStockIt
   };
 
   const filteredItems = useMemo(() => {
-    return menuItems.filter(item => {
+    const filtered = menuItems.filter(item => {
       const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = activeCategory === 'Semua' || item.category === activeCategory;
       return matchesSearch && matchesCategory;
+    });
+    // Menu habis (stok <= 0) diletakkan paling bawah agar menu tersedia jadi prioritas di atas
+    return [...filtered].sort((a, b) => {
+      const aOut = Number(a.stock) <= 0 || a.status === 'Habis';
+      const bOut = Number(b.stock) <= 0 || b.status === 'Habis';
+      return Number(aOut) - Number(bOut);
     });
   }, [menuItems, searchTerm, activeCategory]);
 
@@ -297,10 +302,10 @@ export function POS({ menuItems, setMenuItems, setOrders, stockItems, setStockIt
   };
 
   return (
-    <div className="flex gap-6 h-[calc(100vh-140px)]">
+    <div className="flex flex-col md:flex-row gap-4 md:gap-6 h-auto md:h-[calc(100vh-140px)] max-lg:[&>*]:min-w-0">
       {/* Left Side: Product Selection */}
-      <div className="flex-1 flex flex-col gap-4 overflow-hidden">
-        <div className="flex items-center gap-4">
+      <div className="flex-1 min-w-0 flex flex-col gap-4 overflow-hidden">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
             <Input 
@@ -311,12 +316,12 @@ export function POS({ menuItems, setMenuItems, setOrders, stockItems, setStockIt
             />
           </div>
           <Tabs value={activeCategory} onValueChange={setActiveCategory} className="w-auto">
-            <TabsList className="bg-stone-100 p-1">
+            <TabsList className="bg-stone-100 p-1 flex-wrap h-auto">
               {categories.slice(0, 5).map(cat => (
                 <TabsTrigger 
                   key={cat} 
                   value={cat}
-                  className="px-4 py-2 data-[state=active]:bg-white data-[state=active]:text-orange-600 data-[state=active]:shadow-sm"
+                  className="px-3 sm:px-4 py-2 data-[state=active]:bg-white data-[state=active]:text-orange-600 data-[state=active]:shadow-sm text-xs sm:text-sm"
                 >
                   {cat}
                 </TabsTrigger>
@@ -326,7 +331,7 @@ export function POS({ menuItems, setMenuItems, setOrders, stockItems, setStockIt
         </div>
 
         <ScrollArea className="flex-1 pr-4">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-4">
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-4">
             {filteredItems.map(item => {
               const isDeactivated = !item.displayed;
               return (
@@ -385,8 +390,8 @@ export function POS({ menuItems, setMenuItems, setOrders, stockItems, setStockIt
         </ScrollArea>
       </div>
 
-      {/* Right Side: Cart & Checkout */}
-      <Card className="w-[380px] flex flex-col border border-neutral-200 bg-white">
+      {/* Right Side: Cart & Checkout — sticky di layar besar, static di layar kecil */}
+      <Card className="w-full md:w-[320px] lg:w-[380px] xl:w-[420px] shrink-0 flex flex-col border border-neutral-200 bg-white md:sticky md:top-4 md:max-h-[calc(100vh-140px)]">
         <CardHeader className="border-b border-neutral-100 pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -407,7 +412,7 @@ export function POS({ menuItems, setMenuItems, setOrders, stockItems, setStockIt
           <span className="text-[11px] font-medium px-2 py-1 rounded-md bg-neutral-900 text-white">KASIR</span>
         </div>
 
-        <ScrollArea className="flex-1">
+        <ScrollArea className="flex-1 min-h-0">
           <div className="p-4 space-y-3">
             {cart.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-neutral-400 text-center">
@@ -499,32 +504,28 @@ export function POS({ menuItems, setMenuItems, setOrders, stockItems, setStockIt
                 <span>- Rp {(discountAmount || 0).toLocaleString()}</span>
               </div>
             )}
-            <div className="flex justify-between text-sm text-stone-500">
-              <span>Pajak (10%)</span>
-              <span>Rp {(tax || 0).toLocaleString()}</span>
-            </div>
             <div className="flex justify-between text-lg font-bold text-stone-900 pt-2 border-t border-stone-200">
               <span>Total</span>
               <span className="text-orange-600">Rp {(total || 0).toLocaleString()}</span>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 w-full">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 w-full">
             <Button 
               variant="outline" 
-              className="h-12 border-stone-200 hover:bg-stone-50 hover:border-orange-500 hover:text-orange-600 font-bold transition-all"
+              className="h-12 bg-stone-900 hover:bg-stone-800 text-white border-stone-900 font-bold shadow-lg transition-all px-2 text-sm sm:text-base"
               onClick={() => openPayment('QRIS')}
               disabled={isProcessing || cart.length === 0}
             >
-              <QrCode size={18} className="mr-2" />
+              <QrCode size={18} className="mr-1 sm:mr-2 shrink-0" />
               QRIS
             </Button>
             <Button 
-              className="h-12 bg-stone-900 hover:bg-stone-800 text-white font-bold shadow-lg transition-all"
+              className="h-12 bg-stone-900 hover:bg-stone-800 text-white font-bold shadow-lg transition-all px-2 text-sm sm:text-base"
               onClick={() => openPayment('Cash')}
               disabled={isProcessing || cart.length === 0}
             >
-              <Banknote size={18} className="mr-2" />
+              <Banknote size={18} className="mr-1 sm:mr-2 shrink-0" />
               Tunai
             </Button>
           </div>
@@ -610,12 +611,16 @@ export function POS({ menuItems, setMenuItems, setOrders, stockItems, setStockIt
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center p-6 bg-white border-2 border-stone-100 rounded-2xl">
-                <div className="w-48 h-48 bg-stone-50 rounded-xl flex items-center justify-center border border-stone-200 mb-4">
-                  <QrCode size={120} className="text-stone-300" />
+              <div className="flex flex-col items-center justify-center p-4 sm:p-6 bg-white border-2 border-stone-100 rounded-2xl">
+                <div className="w-full max-w-[280px] sm:w-64 sm:h-64 rounded-xl overflow-hidden border border-stone-200 mb-4 bg-white">
+                  <img 
+                    src="/qris-static.jpeg" 
+                    alt="QRIS 4Floorup Restoran" 
+                    className="w-full h-full object-contain"
+                  />
                 </div>
-                <p className="text-sm font-bold text-stone-900">Scan QRIS Dinamis</p>
-                <p className="text-xs text-stone-500 mt-1 text-center">Tunjukkan QR ke pelanggan untuk pembayaran otomatis</p>
+                <p className="text-sm font-bold text-stone-900">Scan QRIS 4Floorup Restoran</p>
+                <p className="text-xs text-stone-500 mt-1 text-center">Tunjukkan QR ke pelanggan untuk pembayaran</p>
               </div>
             )}
           </div>
