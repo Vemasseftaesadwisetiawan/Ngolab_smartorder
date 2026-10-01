@@ -196,11 +196,25 @@ export function POS({ menuItems, setMenuItems, setOrders, stockItems, setStockIt
       const matchesCategory = activeCategory === 'Semua' || item.category === activeCategory;
       return matchesSearch && matchesCategory;
     });
-    // Menu habis (stok <= 0) diletakkan paling bawah agar menu tersedia jadi prioritas di atas
+    // Urutan grup kategori di tab "Semua": Makanan diprioritaskan sebelum Minuman (konsisten dengan Katalog Menu)
+    const CATEGORY_ORDER = ['Makanan', 'Minuman', 'Ice Cream', 'Snack'];
+    const categoryRank = (cat: string) => {
+      const idx = CATEGORY_ORDER.indexOf(cat);
+      return idx === -1 ? CATEGORY_ORDER.length : idx;
+    };
     return [...filtered].sort((a, b) => {
+      // 1. Menu habis (stok <= 0) diletakkan paling bawah agar menu tersedia jadi prioritas di atas
       const aOut = Number(a.stock) <= 0 || a.status === 'Habis';
       const bOut = Number(b.stock) <= 0 || b.status === 'Habis';
-      return Number(aOut) - Number(bOut);
+      const outDiff = Number(aOut) - Number(bOut);
+      if (outDiff !== 0) return outDiff;
+      // 2. Di tab "Semua": Makanan -> Minuman -> Ice Cream -> Snack -> lainnya
+      //    (menu terbaru tetap di atas di dalam grupnya masing-masing)
+      if (activeCategory === 'Semua') {
+        const catDiff = categoryRank(a.category) - categoryRank(b.category);
+        if (catDiff !== 0) return catDiff;
+      }
+      return 0;
     });
   }, [menuItems, searchTerm, activeCategory]);
 
