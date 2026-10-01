@@ -358,7 +358,7 @@ export function POS({ menuItems, setMenuItems, setOrders, stockItems, setStockIt
   };
 
   return (
-    <div className="flex flex-col md:flex-row gap-4 md:gap-6 h-auto md:h-[calc(100vh-140px)] max-lg:[&>*]:min-w-0">
+    <div className="flex flex-col md:flex-row gap-4 md:gap-6 h-auto md:h-[calc(100vh-104px)] max-lg:[&>*]:min-w-0">
       {/* Left Side: Product Selection */}
       <div className="flex-1 min-w-0 flex flex-col gap-4 overflow-hidden">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
@@ -386,7 +386,7 @@ export function POS({ menuItems, setMenuItems, setOrders, stockItems, setStockIt
           </Tabs>
         </div>
 
-        <ScrollArea className="flex-1 pr-4">
+        <ScrollArea className="flex-1 md:min-h-0 pr-4">
           <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-4">
             {filteredItems.map(item => {
               const isDeactivated = !item.displayed;
@@ -447,7 +447,7 @@ export function POS({ menuItems, setMenuItems, setOrders, stockItems, setStockIt
       </div>
 
       {/* Right Side: Cart & Checkout — sticky di layar besar, static di layar kecil */}
-      <Card className="w-full md:w-[320px] lg:w-[380px] xl:w-[420px] shrink-0 flex flex-col border border-neutral-200 bg-white md:sticky md:top-4 md:max-h-[calc(100vh-140px)]">
+      <Card className="w-full md:w-[320px] lg:w-[380px] xl:w-[420px] shrink-0 flex flex-col border border-neutral-200 bg-white md:sticky md:top-4 md:max-h-[calc(100vh-104px)]">
         <CardHeader className="border-b border-neutral-100 pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
