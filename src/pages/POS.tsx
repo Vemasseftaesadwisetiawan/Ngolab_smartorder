@@ -15,7 +15,9 @@ import {
   Loader2,
   QrCode,
   Eye,
-  EyeOff
+  EyeOff,
+  CheckCircle2,
+  Printer
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -82,6 +84,23 @@ export function POS({ menuItems, setMenuItems, setOrders, stockItems, setStockIt
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'QRIS' | null>(null);
   const [amountPaid, setAmountPaid] = useState<string>('');
+
+  // Receipt States
+  const [showReceiptDialog, setShowReceiptDialog] = useState(false);
+  const [lastReceipt, setLastReceipt] = useState<null | {
+    id: string;
+    date: string;
+    time: string;
+    items: { id: string; name: string; price: number; quantity: number; note?: string }[];
+    subtotal: number;
+    discountAmount: number;
+    appliedPromoCode: string;
+    total: number;
+    paymentMethod: 'Cash' | 'QRIS' | null;
+    amountPaid: number;
+    change: number;
+    cashierName: string;
+  }>(null);
 
   const categories = ['Semua', ...Array.from(new Set(menuItems.map(item => item.category)))];
 
@@ -241,6 +260,8 @@ export function POS({ menuItems, setMenuItems, setOrders, stockItems, setStockIt
       promoCode: appliedPromoCode || undefined
     });
 
+    let placedOrder: { id: string; items: any[]; total: number; amountPaid: number; change: number } | null = null;
+
     try {
       let response: Response;
       let attempts = 0;
@@ -258,6 +279,13 @@ export function POS({ menuItems, setMenuItems, setOrders, stockItems, setStockIt
             time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
             date: new Date().toLocaleDateString('id-ID'),
           };
+          placedOrder = {
+            id: attemptOrder.id,
+            items: attemptOrder.items,
+            total: attemptOrder.total,
+            amountPaid: attemptOrder.amountPaid,
+            change: attemptOrder.change
+          };
           setOrders(prev => [orderForUI, ...prev]);
           break;
         }
@@ -272,6 +300,34 @@ export function POS({ menuItems, setMenuItems, setOrders, stockItems, setStockIt
       }
 
       if (!response.ok) throw new Error('Gagal memproses transaksi di server setelah retry');
+
+      // 2b. Simpan struk transaksi terakhir untuk ditampilkan & dicetak
+      if (placedOrder) {
+        const now = new Date();
+        let cashierName = 'Kasir';
+        try {
+          const savedUser = localStorage.getItem('smartorder_user');
+          if (savedUser) {
+            const parsedUser = JSON.parse(savedUser);
+            if (parsedUser?.name) cashierName = parsedUser.name;
+          }
+        } catch { /* abaikan */ }
+        setLastReceipt({
+          id: placedOrder.id,
+          date: now.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
+          time: now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+          items: placedOrder.items,
+          subtotal,
+          discountAmount,
+          appliedPromoCode,
+          total,
+          paymentMethod,
+          amountPaid: placedOrder.amountPaid,
+          change: placedOrder.change,
+          cashierName
+        });
+        setShowReceiptDialog(true);
+      }
 
       // 3. Reset form
       setCart([]);
@@ -513,7 +569,7 @@ export function POS({ menuItems, setMenuItems, setOrders, stockItems, setStockIt
           <div className="grid grid-cols-2 gap-2 sm:gap-3 w-full">
             <Button 
               variant="outline" 
-              className="h-12 bg-stone-900 hover:bg-stone-800 text-white border-stone-900 font-bold shadow-lg transition-all px-2 text-sm sm:text-base"
+              className="h-12 bg-white hover:bg-orange-50 hover:text-orange-600 hover:border-orange-500 text-stone-900 border-stone-300 font-bold shadow-lg transition-all px-2 text-sm sm:text-base"
               onClick={() => openPayment('QRIS')}
               disabled={isProcessing || cart.length === 0}
             >
@@ -636,6 +692,105 @@ export function POS({ menuItems, setMenuItems, setOrders, stockItems, setStockIt
               Selesaikan Pembayaran
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Receipt Dialog */}
+      <Dialog open={showReceiptDialog} onOpenChange={setShowReceiptDialog}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-600">
+              <CheckCircle2 className="w-5 h-5" />
+              Transaksi Berhasil
+            </DialogTitle>
+            <DialogDescription>
+              Struk siap dicetak ke printer thermal
+            </DialogDescription>
+          </DialogHeader>
+
+          {lastReceipt && (
+            <div className="space-y-4 py-2">
+              {/* Struk thermal 80mm */}
+              <div id="pos-receipt" className="bg-white text-black mx-auto w-[300px] font-mono text-[11px] leading-relaxed print:w-[80mm] print:mx-0 print:shadow-none">
+                <div className="text-center">
+                  <p className="text-sm font-bold">NGOLAB BAKSO MAS YANTO</p>
+                  <p>Smart Order</p>
+                  <p className="border-t border-dashed border-black my-2"></p>
+                </div>
+                <div className="flex justify-between">
+                  <span>No.</span>
+                  <span>{lastReceipt.id}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Tanggal</span>
+                  <span>{lastReceipt.date} {lastReceipt.time}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Kasir</span>
+                  <span>{lastReceipt.cashierName}</span>
+                </div>
+                <p className="border-t border-dashed border-black my-2"></p>
+                {lastReceipt.items.map(item => (
+                  <div key={item.id} className="mb-1">
+                    <p className="font-bold">{item.name}</p>
+                    <div className="flex justify-between">
+                      <span>{item.quantity} x {item.price.toLocaleString('id-ID')}</span>
+                      <span>{(item.price * item.quantity).toLocaleString('id-ID')}</span>
+                    </div>
+                    {item.note && <p className="italic">+ {item.note}</p>}
+                  </div>
+                ))}
+                <p className="border-t border-dashed border-black my-2"></p>
+                <div className="flex justify-between">
+                  <span>Subtotal</span>
+                  <span>{lastReceipt.subtotal.toLocaleString('id-ID')}</span>
+                </div>
+                {lastReceipt.discountAmount > 0 && (
+                  <div className="flex justify-between">
+                    <span>Diskon {lastReceipt.appliedPromoCode ? `(${lastReceipt.appliedPromoCode})` : ''}</span>
+                    <span>-{lastReceipt.discountAmount.toLocaleString('id-ID')}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold text-sm">
+                  <span>TOTAL</span>
+                  <span>Rp {lastReceipt.total.toLocaleString('id-ID')}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Bayar ({lastReceipt.paymentMethod === 'Cash' ? 'Tunai' : 'QRIS'})</span>
+                  <span>{lastReceipt.amountPaid.toLocaleString('id-ID')}</span>
+                </div>
+                {lastReceipt.paymentMethod === 'Cash' && (
+                  <div className="flex justify-between">
+                    <span>Kembali</span>
+                    <span>{lastReceipt.change.toLocaleString('id-ID')}</span>
+                  </div>
+                )}
+                <p className="border-t border-dashed border-black my-2"></p>
+                <div className="text-center">
+                  <p>Terima kasih!</p>
+                  <p>Barang yang sudah dibeli</p>
+                  <p>tidak dapat ditukar.</p>
+                </div>
+                <div className="h-6"></div>
+                <p className="text-center text-[9px] text-stone-400 print:hidden">--- potong di sini ---</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 print:hidden">
+                <Button variant="outline" onClick={() => setShowReceiptDialog(false)}>Tutup</Button>
+                <Button
+                  className="bg-stone-900 hover:bg-stone-800 text-white font-bold"
+                  onClick={() => {
+                    document.body.classList.add('receipt-printing');
+                    window.print();
+                    setTimeout(() => document.body.classList.remove('receipt-printing'), 500);
+                  }}
+                >
+                  <Printer size={16} className="mr-2" />
+                  Cetak Struk
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

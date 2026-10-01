@@ -158,6 +158,25 @@
       background: white !important;
       color: black !important;
     }
+    /* Struk POS thermal: hanya #pos-receipt yang tercetak (aktif saat body.receipt-printing) */
+    body.receipt-printing * {
+      visibility: hidden !important;
+    }
+    body.receipt-printing #pos-receipt,
+    body.receipt-printing #pos-receipt * {
+      visibility: visible !important;
+    }
+    body.receipt-printing #pos-receipt {
+      position: absolute !important;
+      left: 0 !important;
+      top: 0 !important;
+      width: 80mm !important;
+      max-width: 80mm !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      box-shadow: none !important;
+      border: none !important;
+    }
   }
   * {
     @apply border-border;
