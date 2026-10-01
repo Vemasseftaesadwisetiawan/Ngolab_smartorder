@@ -176,12 +176,30 @@ export function MenuCatalog({
     }
   };
 
+  // Urutan grup kategori di tab "Semua": Makanan diprioritaskan sebelum Minuman
+  const CATEGORY_ORDER = ['Makanan', 'Minuman', 'Ice Cream', 'Snack'];
+  const categoryRank = (cat: string) => {
+    const idx = CATEGORY_ORDER.indexOf(cat);
+    return idx === -1 ? CATEGORY_ORDER.length : idx;
+  };
+
   const filteredItems = menuItems.filter(item => {
     const matchesCategory = activeCategory === 'Semua' || item.category === activeCategory;
     const matchesSearch = item.name.toLowerCase().includes(effectiveSearchTerm.toLowerCase()) || 
                           item.description.toLowerCase().includes(effectiveSearchTerm.toLowerCase());
     return matchesCategory && matchesSearch;
-  }).sort((a, b) => Number(b.displayed !== false) - Number(a.displayed !== false));
+  }).sort((a, b) => {
+    // 1. Menu yang ditampilkan ke pengguna didahulukan
+    const displayedDiff = Number(b.displayed !== false) - Number(a.displayed !== false);
+    if (displayedDiff !== 0) return displayedDiff;
+    // 2. Di tab "Semua": Makanan -> Minuman -> Ice Cream -> Snack -> lainnya
+    //    (menu baru tetap di atas di dalam grupnya masing-masing)
+    if (activeCategory === 'Semua') {
+      const catDiff = categoryRank(a.category) - categoryRank(b.category);
+      if (catDiff !== 0) return catDiff;
+    }
+    return 0;
+  });
 
   const today = new Date().toISOString().split('T')[0];
   const scheduledToday = filteredItems.filter(item => 
